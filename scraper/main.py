@@ -349,6 +349,179 @@ def run(playwright):
             except Exception as e:
                 print(f"[DEBUG] Error tomando captura del fallo: {e}", flush=True)
         
+        # PASO ADICIONAL: Hacer clic en botón de pantalla completa
+        print("\n[PASO 15] Intentando hacer clic en el botón de pantalla completa...", flush=True)
+        try:
+            # Esperar un poco más para asegurar que todo esté cargado
+            time.sleep(3)
+            
+            # Tomar captura antes del clic en pantalla completa
+            page.screenshot(path="before_fullscreen_click.png")
+            print("--- [DEBUG] Captura antes del clic en pantalla completa guardada ---", flush=True)
+            
+            # Obtener las coordenadas del iframe del juego nuevamente
+            game_iframe_info = page.evaluate("""
+                () => {
+                    let gameFrame = document.querySelector('iframe.game');
+                    if (gameFrame) {
+                        let rect = gameFrame.getBoundingClientRect();
+                        return {
+                            found: true,
+                            x: rect.x,
+                            y: rect.y,
+                            width: rect.width,
+                            height: rect.height
+                        };
+                    }
+                    return { found: false };
+                }
+            """)
+            
+            if game_iframe_info['found']:
+                iframe_x = game_iframe_info['x']
+                iframe_y = game_iframe_info['y']
+                iframe_width = game_iframe_info['width']
+                iframe_height = game_iframe_info['height']
+                
+                # Coordenadas del botón menú (que ya sabemos que funcionan)
+                menu_x = iframe_x + iframe_width - 35
+                menu_y = iframe_y + 35
+                
+                print(f"[DEBUG] Coordenadas del botón menú: ({menu_x:.1f}, {menu_y:.1f})", flush=True)
+                
+                # Probar diferentes coordenadas para el botón de pantalla completa
+                # Basándome en tu descripción: más arriba y más a la derecha
+                fullscreen_positions = [
+                    (menu_x + 5, menu_y - 5),   # 5px derecha, 5px arriba
+                    (menu_x + 10, menu_y - 10), # 10px derecha, 10px arriba
+                    (menu_x + 15, menu_y - 5),  # 15px derecha, 5px arriba
+                    (menu_x + 5, menu_y - 15),  # 5px derecha, 15px arriba
+                    (menu_x + 10, menu_y - 5),  # 10px derecha, 5px arriba
+                    (menu_x + 15, menu_y - 10), # 15px derecha, 10px arriba
+                    (menu_x + 20, menu_y - 10), # 20px derecha, 10px arriba
+                    (menu_x + 10, menu_y - 20), # 10px derecha, 20px arriba
+                ]
+                
+                for i, (fs_x, fs_y) in enumerate(fullscreen_positions, 1):
+                    print(f"\n[DEBUG] Intento {i}: Probando coordenadas ({fs_x:.1f}, {fs_y:.1f})", flush=True)
+                    
+                    # Hacer clic en la posición
+                    page.mouse.click(fs_x, fs_y)
+                    
+                    # Esperar a ver si algo cambió
+                    time.sleep(2)
+                    
+                    # Tomar captura después del clic
+                    page.screenshot(path=f"fullscreen_attempt_{i}.png")
+                    print(f"--- [DEBUG] Captura del intento {i} guardada en 'fullscreen_attempt_{i}.png' ---", flush=True)
+                    
+                    # Verificar si la pantalla cambió a modo completo
+                    # Esto se puede hacer verificando el tamaño del iframe o cambios en la página
+                    new_iframe_info = page.evaluate("""
+                        () => {
+                            let gameFrame = document.querySelector('iframe.game');
+                            if (gameFrame) {
+                                let rect = gameFrame.getBoundingClientRect();
+                                return {
+                                    width: rect.width,
+                                    height: rect.height,
+                                    isFullscreen: rect.width > 1200 || rect.height > 600
+                                };
+                            }
+                            return { width: 0, height: 0, isFullscreen: false };
+                        }
+                    """)
+                    
+                    print(f"[DEBUG] Tamaño del iframe después del clic: {new_iframe_info['width']:.1f}x{new_iframe_info['height']:.1f}", flush=True)
+                    
+                    if new_iframe_info['isFullscreen']:
+                        print(f"[ÉXITO] ¡Pantalla completa activada en el intento {i}!", flush=True)
+                        
+                        # Tomar múltiples capturas con diferentes intervalos para asegurar capturar la pantalla completa
+                        print("[DEBUG] Tomando múltiples capturas de la pantalla completa...", flush=True)
+                        
+                        # Captura inmediata
+                        page.screenshot(path=f"fullscreen_immediate_{i}.png")
+                        print(f"--- [DEBUG] Captura inmediata guardada en 'fullscreen_immediate_{i}.png' ---", flush=True)
+                        
+                        # Esperar y tomar capturas adicionales
+                        for delay in [1, 2, 3, 5]:
+                            time.sleep(delay)
+                            page.screenshot(path=f"fullscreen_after_{delay}s_{i}.png")
+                            print(f"--- [DEBUG] Captura después de {delay}s guardada en 'fullscreen_after_{delay}s_{i}.png' ---", flush=True)
+                            
+                            # Verificar el tamaño del iframe en cada captura
+                            current_iframe_info = page.evaluate("""
+                                () => {
+                                    let gameFrame = document.querySelector('iframe.game');
+                                    if (gameFrame) {
+                                        let rect = gameFrame.getBoundingClientRect();
+                                        return {
+                                            width: rect.width,
+                                            height: rect.height,
+                                            x: rect.x,
+                                            y: rect.y
+                                        };
+                                    }
+                                    return { width: 0, height: 0, x: 0, y: 0 };
+                                }
+                            """)
+                            
+                            print(f"[DEBUG] Después de {delay}s - Iframe: {current_iframe_info['width']:.1f}x{current_iframe_info['height']:.1f} en ({current_iframe_info['x']:.1f}, {current_iframe_info['y']:.1f})", flush=True)
+                        
+                        # Tomar captura final en pantalla completa
+                        time.sleep(2)
+                        page.screenshot(path="final_fullscreen_success.png")
+                        print("--- [DEBUG] Captura final en pantalla completa guardada ---", flush=True)
+                        
+                        # Información adicional del estado final
+                        final_info = page.evaluate("""
+                            () => {
+                                let gameFrame = document.querySelector('iframe.game');
+                                if (gameFrame) {
+                                    let rect = gameFrame.getBoundingClientRect();
+                                    return {
+                                        width: rect.width,
+                                        height: rect.height,
+                                        x: rect.x,
+                                        y: rect.y,
+                                        windowWidth: window.innerWidth,
+                                        windowHeight: window.innerHeight
+                                    };
+                                }
+                                return null;
+                            }
+                        """)
+                        
+                        if final_info:
+                            print(f"[DEBUG] ESTADO FINAL - Iframe: {final_info['width']:.1f}x{final_info['height']:.1f}", flush=True)
+                            print(f"[DEBUG] ESTADO FINAL - Posición: ({final_info['x']:.1f}, {final_info['y']:.1f})", flush=True)
+                            print(f"[DEBUG] ESTADO FINAL - Ventana: {final_info['windowWidth']}x{final_info['windowHeight']}", flush=True)
+                        
+                        break
+                    else:
+                        print(f"[DEBUG] Intento {i} no activó pantalla completa, continuando...", flush=True)
+                        
+                        # Si no fue el último intento, esperar un poco antes del siguiente
+                        if i < len(fullscreen_positions):
+                            time.sleep(1)
+                
+                # Tomar captura final del proceso de pantalla completa
+                page.screenshot(path="final_fullscreen_process.png")
+                print("--- [DEBUG] Captura final del proceso de pantalla completa guardada ---", flush=True)
+                
+            else:
+                print("[DEBUG] No se pudo obtener información del iframe para el botón de pantalla completa", flush=True)
+                
+        except Exception as e:
+            print(f"[DEBUG] Error en el proceso de pantalla completa: {e}", flush=True)
+            # Tomar captura del error
+            try:
+                page.screenshot(path="fullscreen_error.png")
+                print("--- [DEBUG] Captura del error en pantalla completa guardada ---", flush=True)
+            except:
+                pass
+        
         print("\nTarea completada. El navegador permanecerá abierto por 60 segundos.", flush=True)
         print("Revisa las capturas de pantalla generadas para ver exactamente dónde se hizo clic.", flush=True)
         print("Puedes ver el navegador ahora para verificar el resultado.", flush=True)
