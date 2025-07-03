@@ -614,99 +614,77 @@ def run(playwright):
         except Exception as e:
             print(f"[CALIBRACIÓN] Error en calibración: {e}", flush=True)
         
-        # PASO 17: MONITOREO FINAL CON COORDENADAS EXACTAS
-        print("\n[PASO 17] Iniciando monitoreo con área perfecta de la Mesa 1...", flush=True)
+        # PASO 17: MONITOREO FINAL SOLO EN EL LETRERO DETECTADO
+        print("\n[PASO 17] Monitoreo SOLO en el área del letrero de resultado (80x100 en y=180)...", flush=True)
         try:
-            # Coordenadas exactas de la configuración 3 (ajuste_laterales)
-            # Configuración que funciona: 366x360 en (20, 120)
             mesa1_area_final = {
-                'x': 20,      # Coordenada X de config 3
-                'y': 120,     # Coordenada Y de config 3
-                'width': 370, # Ancho de config 3
-                'height': 200 # Alto de config 3
+                'x': 20,
+                'y': 120,
+                'width': 370,
+                'height': 200
             }
+            # Coordenadas exactas del letrero (basado en la prueba)
+            letrero_area = {
+                'x': 155,   # calculado en el centro de la mesa
+                'y': 180,
+                'width': 80,
+                'height': 100
+            }
+            print(f"[MONITOREO] Área del letrero: {letrero_area['width']}x{letrero_area['height']} en ({letrero_area['x']}, {letrero_area['y']})", flush=True)
             
-            print(f"[MONITOREO] Área final: {mesa1_area_final['width']}x{mesa1_area_final['height']} en ({mesa1_area_final['x']}, {mesa1_area_final['y']})", flush=True)
-            print(f"[MONITOREO] Configuración 3 (ajuste_laterales) - LA QUE FUNCIONA", flush=True)
+            import numpy as np
+            from PIL import Image
+            import hashlib
             
-            # Tomar captura inicial con el área final
-            page.screenshot(path="capturas/paso_17_monitoreo/mesa1_area_final.png", clip=mesa1_area_final)
-            print("--- [DEBUG] Captura del área final guardada ---", flush=True)
-            
-            # Variables para el monitoreo
             monitoring_count = 0
-            last_screenshot = None
-            cambios_detectados = []
+            cambio_count = 0
+            last_color = None
+            color_labels = ['rojo', 'azul', 'verde', 'otro']
             
-            print("[MONITOREO] INICIANDO DETECCIÓN DE CAMBIOS EN TIEMPO REAL", flush=True)
-            print("[MONITOREO] Monitoreando solo la Mesa 1 (Baccarat) cada 2 segundos...", flush=True)
+            def detectar_color_predominante(img_path):
+                img = Image.open(img_path).convert('RGB')
+                arr = np.array(img)
+                arr = arr.reshape(-1, 3)
+                mean = arr.mean(axis=0)
+                r, g, b = mean
+                if r > 150 and g < 100 and b < 100:
+                    return 'rojo'
+                elif b > 100 and r < 100 and g < 150:
+                    return 'azul'
+                elif g > 100 and r < 100 and b < 100:
+                    return 'verde'
+                else:
+                    return 'otro'
             
-            # Monitoreo continuo de cambios
+            print("[MONITOREO] INICIANDO DETECCIÓN DE CAMBIOS DE RESULTADO POR COLOR", flush=True)
             while True:
                 try:
                     monitoring_count += 1
+                    # Captura del área del letrero
+                    letrero_path = f"capturas/paso_17_monitoreo/tmp_letrero_{monitoring_count:04d}.png"
+                    page.screenshot(path=letrero_path, clip=letrero_area)
+                    color = detectar_color_predominante(letrero_path)
                     
-                    # Tomar screenshot del área específica
-                    current_screenshot = f"capturas/paso_17_monitoreo/mesa1_monitor_{monitoring_count:03d}.png"
-                    page.screenshot(path=current_screenshot, clip=mesa1_area_final)
+                    if color != last_color and color in color_labels:
+                        cambio_count += 1
+                        mesa_path = f"capturas/paso_17_monitoreo/{cambio_count:04d}_mesa1_resultado_{color}.png"
+                        page.screenshot(path=mesa_path, clip=mesa1_area_final)
+                        print(f"[CAMBIO #{cambio_count}] Resultado detectado: {color.upper()} - Captura: {mesa_path}", flush=True)
+                        last_color = color
                     
-                    # Comparar con el screenshot anterior
-                    if last_screenshot and monitoring_count > 1:
-                        try:
-                            import hashlib
-                            
-                            # Leer ambos archivos para comparar
-                            with open(current_screenshot, "rb") as f1, open(last_screenshot, "rb") as f2:
-                                current_hash = hashlib.md5(f1.read()).hexdigest()
-                                previous_hash = hashlib.md5(f2.read()).hexdigest()
-                            
-                            # Detectar cambios
-                            if current_hash != previous_hash:
-                                cambio_numero = len(cambios_detectados) + 1
-                                tiempo_transcurrido = monitoring_count * 2  # segundos
-                                
-                                print(f"\n[CAMBIO #{cambio_numero}] DETECTADO en Mesa 1! (Chequeo #{monitoring_count})", flush=True)
-                                print(f"[CAMBIO #{cambio_numero}] Tiempo: ~{tiempo_transcurrido} segundos desde inicio", flush=True)
-                                
-                                # Guardar captura del cambio con nombre especial
-                                cambio_screenshot = f"capturas/paso_17_monitoreo/CAMBIO_{cambio_numero:02d}_mesa1_{monitoring_count:03d}.png"
-                                page.screenshot(path=cambio_screenshot, clip=mesa1_area_final)
-                                
-                                print(f"[CAMBIO #{cambio_numero}] Guardado: {cambio_screenshot}", flush=True)
-                                
-                                # Registrar el cambio
-                                cambios_detectados.append({
-                                    'numero': cambio_numero,
-                                    'tiempo': tiempo_transcurrido,
-                                    'chequeo': monitoring_count,
-                                    'screenshot': cambio_screenshot
-                                })
-                                
-                                print(f"[RESULTADO] Total cambios detectados: {len(cambios_detectados)}", flush=True)
-                                
-                        except Exception as e:
-                            print(f"[DEBUG] Error comparando screenshots: {e}", flush=True)
-                    
-                    # Actualizar screenshot de referencia
-                    last_screenshot = current_screenshot
-                    
-                    # Mostrar progreso cada 30 segundos (15 chequeos)
-                    if monitoring_count % 15 == 0:
-                        minutos = (monitoring_count * 2) // 60
-                        segundos = (monitoring_count * 2) % 60
-                        print(f"[PROGRESO] Chequeo #{monitoring_count} - Tiempo: {minutos}:{segundos:02d} - Cambios: {len(cambios_detectados)}", flush=True)
-                        
-                        # Tomar captura de estado actual
-                        page.screenshot(path=f"capturas/paso_17_monitoreo/mesa1_status_{monitoring_count}.png", clip=mesa1_area_final)
+                    # Eliminar la captura temporal del letrero para ahorrar espacio
+                    try:
+                        os.remove(letrero_path)
+                    except Exception:
+                        pass
                     
                     # Esperar antes del siguiente chequeo
-                    time.sleep(2)  # Monitorear cada 2 segundos
+                    time.sleep(2)
                     
                     # Límite de tiempo (15 minutos = 450 chequeos)
                     if monitoring_count >= 450:
                         print(f"\n[MONITOREO] Límite de tiempo alcanzado (15 minutos)", flush=True)
                         break
-                        
                 except KeyboardInterrupt:
                     print(f"\n[MONITOREO] Monitoreo interrumpido por el usuario", flush=True)
                     break
@@ -715,27 +693,8 @@ def run(playwright):
                     time.sleep(3)
                     continue
             
-            # Resumen final del monitoreo
-            print(f"\n[RESUMEN FINAL] Monitoreo completado", flush=True)
-            print(f"[RESUMEN FINAL] Tiempo total: {(monitoring_count * 2) // 60}:{(monitoring_count * 2) % 60:02d} minutos", flush=True)
-            print(f"[RESUMEN FINAL] Chequeos realizados: {monitoring_count}", flush=True)
-            print(f"[RESUMEN FINAL] Cambios detectados: {len(cambios_detectados)}", flush=True)
-            
-            if cambios_detectados:
-                print(f"\n[DETALLE] Lista de cambios detectados:", flush=True)
-                for cambio in cambios_detectados:
-                    minutos = cambio['tiempo'] // 60
-                    segundos = cambio['tiempo'] % 60
-                    print(f"  {cambio['numero']:2d}. {cambio['screenshot']} - {minutos}:{segundos:02d} (chequeo #{cambio['chequeo']})", flush=True)
-                
-                print(f"\n[ANÁLISIS] Estos cambios pueden representar:", flush=True)
-                print(f"[ANÁLISIS] - Nuevas rondas de bacará", flush=True)
-                print(f"[ANÁLISIS] - Resultados: JUGADOR (azul) / BANCA (rojo) / EMPATE (verde)", flush=True)
-                print(f"[ANÁLISIS] - Cambios en cartas o números de ronda", flush=True)
-            else:
-                print(f"\n[ANÁLISIS] No se detectaron cambios durante el monitoreo", flush=True)
-                print(f"[ANÁLISIS] Esto podría indicar que el juego está pausado o sin actividad", flush=True)
-                
+            print(f"\n[RESUMEN FINAL] Cambios de resultado detectados: {cambio_count}", flush=True)
+            print(f"[RESUMEN FINAL] Todas las capturas están en capturas/paso_17_monitoreo/ y ordenadas cronológicamente.", flush=True)
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo final: {e}", flush=True)
         
