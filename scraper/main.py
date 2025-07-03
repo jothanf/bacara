@@ -2,6 +2,8 @@ import time
 import sys
 import os
 from playwright.sync_api import sync_playwright
+from PIL import Image
+import numpy as np
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
@@ -39,6 +41,25 @@ def save_page_content(page, filename="page_content.html", folder="capturas/debug
         print(f"--- [DEBUG] Contenido HTML guardado en '{filepath}' ---", flush=True)
     except Exception as e:
         print(f"Error al guardar el contenido de la página: {e}", flush=True)
+
+def detectar_color_predominante(img_path):
+    img = Image.open(img_path).convert('RGB')
+    arr = np.array(img)
+    arr = arr.reshape(-1, 3)
+    # Filtrar píxeles casi blancos (letras)
+    arr_filtrado = arr[(arr[:,0] < 220) | (arr[:,1] < 220) | (arr[:,2] < 220)]
+    if len(arr_filtrado) == 0:
+        arr_filtrado = arr  # fallback si todo es blanco
+    # Usar la mediana para evitar el efecto de las letras
+    r, g, b = np.median(arr_filtrado, axis=0)
+    if g > 100 and g > r + 20 and g > b + 20:
+        return 'verde'
+    elif r > 140 and g < 150 and b < 150:
+        return 'rojo'
+    elif b > 90 and b > r + 10 and b > g + 10:
+        return 'azul'
+    else:
+        return 'otro'
 
 def run(playwright):
     browser = playwright.chromium.launch(headless=False)
@@ -104,7 +125,7 @@ def run(playwright):
         print("[PASO 9] Clic realizado en 'Juego real'.", flush=True)
 
         print("[PASO 10] Esperando a que el juego cargue completamente...", flush=True)
-        time.sleep(50)  # Más tiempo para que cargue completamente
+        time.sleep(30)  # Más tiempo para que cargue completamente
         
         # Guardar HTML completo para análisis
         print("[DEBUG] Guardando HTML completo de la página del juego...", flush=True)
@@ -614,7 +635,7 @@ def run(playwright):
         except Exception as e:
             print(f"[CALIBRACIÓN] Error en calibración: {e}", flush=True)
         
-        # PASO 17: MONITOREO FINAL SOLO EN EL LETRERO DETECTADO
+        # PASO 17: MONITOREO FINAL SOLO EN EL LETRERO DETECTADO (GUARDAR SIEMPRE QUE SEA COLOR)
         print("\n[PASO 17] Monitoreo SOLO en el área del letrero de resultado (80x100 en y=180)...", flush=True)
         try:
             mesa1_area_final = {
@@ -623,14 +644,19 @@ def run(playwright):
                 'width': 370,
                 'height': 200
             }
-            # Coordenadas exactas del letrero (basado en la prueba)
             letrero_area = {
-                'x': 155,   # calculado en el centro de la mesa
-                'y': 180,
-                'width': 80,
-                'height': 100
+                'x': 155,
+                'y': 220,
+                'width': 120,
+                'height': 40
             }
             print(f"[MONITOREO] Área del letrero: {letrero_area['width']}x{letrero_area['height']} en ({letrero_area['x']}, {letrero_area['y']})", flush=True)
+            
+            # Tomar una captura de referencia de la zona del letrero para verificar el área
+            print("[MONITOREO] Tomando captura de referencia de la zona del letrero...", flush=True)
+            letrero_reference_path = "capturas/paso_17_monitoreo/00_referencia_zona_letrero.png"
+            page.screenshot(path=letrero_reference_path, clip=letrero_area)
+            print(f"[MONITOREO] Captura de referencia guardada: {letrero_reference_path}", flush=True)
             
             import numpy as np
             from PIL import Image
@@ -638,50 +664,34 @@ def run(playwright):
             
             monitoring_count = 0
             cambio_count = 0
-            last_color = None
-            color_labels = ['rojo', 'azul', 'verde', 'otro']
+            color_labels = ['rojo', 'azul', 'verde']
             
-            def detectar_color_predominante(img_path):
-                img = Image.open(img_path).convert('RGB')
-                arr = np.array(img)
-                arr = arr.reshape(-1, 3)
-                mean = arr.mean(axis=0)
-                r, g, b = mean
-                if r > 150 and g < 100 and b < 100:
-                    return 'rojo'
-                elif b > 100 and r < 100 and g < 150:
-                    return 'azul'
-                elif g > 100 and r < 100 and b < 100:
-                    return 'verde'
-                else:
-                    return 'otro'
-            
-            print("[MONITOREO] INICIANDO DETECCIÓN DE CAMBIOS DE RESULTADO POR COLOR", flush=True)
+            print("[MONITOREO] INICIANDO DETECCIÓN DE RESULTADOS POR COLOR (guarda cada vez que sea azul, rojo o verde)", flush=True)
             while True:
                 try:
                     monitoring_count += 1
-                    # Captura del área del letrero
                     letrero_path = f"capturas/paso_17_monitoreo/tmp_letrero_{monitoring_count:04d}.png"
                     page.screenshot(path=letrero_path, clip=letrero_area)
                     color = detectar_color_predominante(letrero_path)
                     
-                    if color != last_color and color in color_labels:
+                    if color in color_labels:
                         cambio_count += 1
+                        # Guardar captura de la mesa completa
                         mesa_path = f"capturas/paso_17_monitoreo/{cambio_count:04d}_mesa1_resultado_{color}.png"
                         page.screenshot(path=mesa_path, clip=mesa1_area_final)
-                        print(f"[CAMBIO #{cambio_count}] Resultado detectado: {color.upper()} - Captura: {mesa_path}", flush=True)
-                        last_color = color
+                        
+                        print(f"[RESULTADO #{cambio_count}] {color.upper()} detectado - Captura: {mesa_path}", flush=True)
+                        
+                        # Esperar 3 segundos para evitar detectar múltiples veces el mismo resultado
+                        print(f"[MONITOREO] Esperando 3 segundos para evitar detección múltiple...", flush=True)
+                        time.sleep(3)
                     
-                    # Eliminar la captura temporal del letrero para ahorrar espacio
                     try:
                         os.remove(letrero_path)
                     except Exception:
                         pass
                     
-                    # Esperar antes del siguiente chequeo
                     time.sleep(2)
-                    
-                    # Límite de tiempo (15 minutos = 450 chequeos)
                     if monitoring_count >= 450:
                         print(f"\n[MONITOREO] Límite de tiempo alcanzado (15 minutos)", flush=True)
                         break
@@ -693,8 +703,9 @@ def run(playwright):
                     time.sleep(3)
                     continue
             
-            print(f"\n[RESUMEN FINAL] Cambios de resultado detectados: {cambio_count}", flush=True)
+            print(f"\n[RESUMEN FINAL] Resultados detectados: {cambio_count}", flush=True)
             print(f"[RESUMEN FINAL] Todas las capturas están en capturas/paso_17_monitoreo/ y ordenadas cronológicamente.", flush=True)
+            print(f"[RESUMEN FINAL] Revisa '00_referencia_zona_letrero.png' para ver exactamente qué área estamos analizando.", flush=True)
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo final: {e}", flush=True)
         
