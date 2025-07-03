@@ -1,5 +1,6 @@
 import time
 import sys
+import os
 from playwright.sync_api import sync_playwright
 
 # --- Credenciales ---
@@ -7,13 +8,35 @@ EMAIL = "tatianatorres.o@hotmail.com"
 PASSWORD = "160120Juan!"
 LOGIN_URL = "https://stake.com.co/es"
 
-def save_page_content(page, filename="page_content.html"):
+def create_folders():
+    """Crear estructura de carpetas para organizar las capturas."""
+    folders = [
+        "capturas/paso_01_navegacion",
+        "capturas/paso_02_login", 
+        "capturas/paso_06_casino",
+        "capturas/paso_10_juego",
+        "capturas/paso_15_pantalla_completa",
+        "capturas/paso_16_calibracion",
+        "capturas/paso_17_monitoreo",
+        "capturas/debug"
+    ]
+    
+    for folder in folders:
+        os.makedirs(folder, exist_ok=True)
+    
+    print("[SETUP] Estructura de carpetas creada:", flush=True)
+    for folder in folders:
+        print(f"  - {folder}/", flush=True)
+
+def save_page_content(page, filename="page_content.html", folder="capturas/debug"):
     """Guarda el contenido HTML de la página para depuración."""
     try:
+        os.makedirs(folder, exist_ok=True)
+        filepath = os.path.join(folder, filename)
         html = page.content()
-        with open(filename, "w", encoding="utf-8") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
-        print(f"--- [DEBUG] Contenido HTML guardado en '{filename}' ---", flush=True)
+        print(f"--- [DEBUG] Contenido HTML guardado en '{filepath}' ---", flush=True)
     except Exception as e:
         print(f"Error al guardar el contenido de la página: {e}", flush=True)
 
@@ -23,12 +46,15 @@ def run(playwright):
     page = context.new_page()
 
     try:
+        # Crear estructura de carpetas al inicio
+        create_folders()
+        
         print("[PASO 1] Navegando a la URL de inicio...", flush=True)
         page.goto(LOGIN_URL, timeout=120000, wait_until="domcontentloaded")
         print("[PASO 1] Navegación completada.", flush=True)
 
         # Guardamos el HTML inicial para tener una referencia
-        save_page_content(page, filename="initial_page_content.html")
+        save_page_content(page, filename="initial_page_content.html", folder="capturas/paso_01_navegacion")
         
         print("[PASO 2] Buscando y haciendo clic en 'Iniciar sesión' para abrir el modal...", flush=True)
         login_button_selector = 'button.variant-link:has-text("Iniciar sesión")'
@@ -78,11 +104,11 @@ def run(playwright):
         print("[PASO 9] Clic realizado en 'Juego real'.", flush=True)
 
         print("[PASO 10] Esperando a que el juego cargue completamente...", flush=True)
-        time.sleep(25)  # Más tiempo para que cargue completamente
+        time.sleep(50)  # Más tiempo para que cargue completamente
         
         # Guardar HTML completo para análisis
         print("[DEBUG] Guardando HTML completo de la página del juego...", flush=True)
-        save_page_content(page, filename="game_page_complete.html")
+        save_page_content(page, filename="game_page_complete.html", folder="capturas/paso_10_juego")
         
         print("[PASO 10] Buscando el botón 'Menu' DENTRO del iframe del juego...", flush=True)
         
@@ -128,7 +154,7 @@ def run(playwright):
                 
                 # Tomar captura ANTES de hacer cualquier clic
                 print("[DEBUG] Tomando captura inicial del juego...", flush=True)
-                page.screenshot(path="game_initial_state.png")
+                page.screenshot(path="capturas/paso_10_juego/game_initial_state.png")
                 
                 # Coordenadas exactas que funcionaron según before_lobby_click_1_5.png
                 menu_x = iframe_x + iframe_width - 35
@@ -156,7 +182,7 @@ def run(playwright):
                 time.sleep(8)
                 
                 # Tomar captura después de la carga del lobby
-                page.screenshot(path="after_lobby_load.png")
+                page.screenshot(path="capturas/paso_10_juego/after_lobby_load.png")
                 
                 print("[DEBUG] Buscando 'Multijuego de Bacará'...", flush=True)
                 
@@ -168,7 +194,7 @@ def run(playwright):
                 print(f"[DEBUG] Intentando clic en primera tarjeta en: ({first_card_x:.1f}, {first_card_y:.1f})", flush=True)
                 
                 # Tomar captura antes del clic
-                page.screenshot(path="before_card_click.png")
+                page.screenshot(path="capturas/paso_10_juego/before_card_click.png")
                 
                 # Hacer clic en la posición de la primera tarjeta
                 page.mouse.click(first_card_x, first_card_y)
@@ -178,13 +204,13 @@ def run(playwright):
                 time.sleep(5)
                 
                 # Tomar captura después del clic
-                page.screenshot(path="after_card_click.png")
+                page.screenshot(path="capturas/paso_10_juego/after_card_click.png")
                 
                 print("[ÉXITO] Clic realizado en la primera tarjeta (Multijuego de Bacará)", flush=True)
                 
                 # Verificar si el juego cargó correctamente
                 time.sleep(3)
-                page.screenshot(path="final_game_state.png")
+                page.screenshot(path="capturas/paso_10_juego/final_game_state.png")
                 print("--- [DEBUG] Captura final del juego guardada ---", flush=True)
                 
             else:
@@ -206,8 +232,8 @@ def run(playwright):
             time.sleep(10)
             
             # Tomar captura del lobby
-            page.screenshot(path="lobby_loaded.png")
-            print("--- [DEBUG] Captura del lobby guardada en 'lobby_loaded.png' ---", flush=True)
+            page.screenshot(path="capturas/paso_10_juego/lobby_loaded.png")
+            print("--- [DEBUG] Captura del lobby guardada ---", flush=True)
             
             # Buscar "Multijuego de Bacará" con múltiples estrategias
             baccarat_found = False
@@ -325,17 +351,17 @@ def run(playwright):
             if baccarat_found:
                 print("[PASO 14] ¡PROCESO COMPLETADO! Se ha hecho clic en 'Multijuego de Bacará'", flush=True)
                 time.sleep(5)  # Esperar a que cargue el juego final
-                page.screenshot(path="final_baccarat_game.png")
-                print("--- [DEBUG] Captura final del juego guardada en 'final_baccarat_game.png' ---", flush=True)
+                page.screenshot(path="capturas/paso_10_juego/final_baccarat_game.png")
+                print("--- [DEBUG] Captura final del juego guardada ---", flush=True)
             else:
                 print("[DEBUG] No se pudo encontrar 'Multijuego de Bacará'. Guardando HTML del lobby...", flush=True)
-                save_page_content(page, filename="lobby_content.html")
+                save_page_content(page, filename="lobby_content.html", folder="capturas/debug")
             
             # Tomar captura de pantalla final
             print("[DEBUG] Tomando captura de pantalla final...", flush=True)
             try:
-                page.screenshot(path="final_success.png")
-                print("--- [DEBUG] Captura final de éxito guardada en 'final_success.png' ---", flush=True)
+                page.screenshot(path="capturas/paso_10_juego/final_success.png")
+                print("--- [DEBUG] Captura final de éxito guardada ---", flush=True)
             except Exception as e:
                 print(f"[DEBUG] Error tomando captura final: {e}", flush=True)
         
@@ -344,8 +370,8 @@ def run(playwright):
             
             # Tomar captura del estado final aunque no haya funcionado
             try:
-                page.screenshot(path="final_failed.png")
-                print("--- [DEBUG] Captura del intento fallido guardada en 'final_failed.png' ---", flush=True)
+                page.screenshot(path="capturas/debug/final_failed.png")
+                print("--- [DEBUG] Captura del intento fallido guardada ---", flush=True)
             except Exception as e:
                 print(f"[DEBUG] Error tomando captura del fallo: {e}", flush=True)
         
@@ -356,7 +382,7 @@ def run(playwright):
             time.sleep(3)
             
             # Tomar captura antes del clic en pantalla completa
-            page.screenshot(path="before_fullscreen_click.png")
+            page.screenshot(path="capturas/paso_15_pantalla_completa/before_fullscreen_click.png")
             print("--- [DEBUG] Captura antes del clic en pantalla completa guardada ---", flush=True)
             
             # Obtener las coordenadas del iframe del juego nuevamente
@@ -412,8 +438,8 @@ def run(playwright):
                     time.sleep(2)
                     
                     # Tomar captura después del clic
-                    page.screenshot(path=f"fullscreen_attempt_{i}.png")
-                    print(f"--- [DEBUG] Captura del intento {i} guardada en 'fullscreen_attempt_{i}.png' ---", flush=True)
+                    page.screenshot(path=f"capturas/paso_15_pantalla_completa/fullscreen_attempt_{i}.png")
+                    print(f"--- [DEBUG] Captura del intento {i} guardada ---", flush=True)
                     
                     # Verificar si la pantalla cambió a modo completo
                     # Esto se puede hacer verificando el tamaño del iframe o cambios en la página
@@ -441,14 +467,14 @@ def run(playwright):
                         print("[DEBUG] Tomando múltiples capturas de la pantalla completa...", flush=True)
                         
                         # Captura inmediata
-                        page.screenshot(path=f"fullscreen_immediate_{i}.png")
-                        print(f"--- [DEBUG] Captura inmediata guardada en 'fullscreen_immediate_{i}.png' ---", flush=True)
+                        page.screenshot(path=f"capturas/paso_15_pantalla_completa/fullscreen_immediate_{i}.png")
+                        print(f"--- [DEBUG] Captura inmediata guardada ---", flush=True)
                         
                         # Esperar y tomar capturas adicionales
                         for delay in [1, 2, 3, 5]:
                             time.sleep(delay)
-                            page.screenshot(path=f"fullscreen_after_{delay}s_{i}.png")
-                            print(f"--- [DEBUG] Captura después de {delay}s guardada en 'fullscreen_after_{delay}s_{i}.png' ---", flush=True)
+                            page.screenshot(path=f"capturas/paso_15_pantalla_completa/fullscreen_after_{delay}s_{i}.png")
+                            print(f"--- [DEBUG] Captura después de {delay}s guardada ---", flush=True)
                             
                             # Verificar el tamaño del iframe en cada captura
                             current_iframe_info = page.evaluate("""
@@ -471,7 +497,7 @@ def run(playwright):
                         
                         # Tomar captura final en pantalla completa
                         time.sleep(2)
-                        page.screenshot(path="final_fullscreen_success.png")
+                        page.screenshot(path="capturas/paso_15_pantalla_completa/final_fullscreen_success.png")
                         print("--- [DEBUG] Captura final en pantalla completa guardada ---", flush=True)
                         
                         # Información adicional del estado final
@@ -507,7 +533,7 @@ def run(playwright):
                             time.sleep(1)
                 
                 # Tomar captura final del proceso de pantalla completa
-                page.screenshot(path="final_fullscreen_process.png")
+                page.screenshot(path="capturas/paso_15_pantalla_completa/final_fullscreen_process.png")
                 print("--- [DEBUG] Captura final del proceso de pantalla completa guardada ---", flush=True)
                 
             else:
@@ -517,10 +543,201 @@ def run(playwright):
             print(f"[DEBUG] Error en el proceso de pantalla completa: {e}", flush=True)
             # Tomar captura del error
             try:
-                page.screenshot(path="fullscreen_error.png")
+                page.screenshot(path="capturas/debug/fullscreen_error.png")
                 print("--- [DEBUG] Captura del error en pantalla completa guardada ---", flush=True)
             except:
                 pass
+        
+        # PASO 16: CAPTURA DE ÁREA FINAL - CONFIGURACIÓN ESPECÍFICA
+        print("\n[PASO 16] Tomando captura del área final de la Mesa 1...", flush=True)
+        try:
+            # Obtener coordenadas del iframe
+            iframe_info = page.evaluate("""
+                () => {
+                    let gameFrame = document.querySelector('iframe.game');
+                    if (gameFrame) {
+                        let rect = gameFrame.getBoundingClientRect();
+                        return {
+                            found: true,
+                            x: rect.x,
+                            y: rect.y,
+                            width: rect.width,
+                            height: rect.height
+                        };
+                    }
+                    return { found: false };
+                }
+            """)
+            
+            if iframe_info['found']:
+                print(f"[CALIBRACIÓN] Iframe completo: {iframe_info['width']:.0f}x{iframe_info['height']:.0f} en ({iframe_info['x']:.0f}, {iframe_info['y']:.0f})", flush=True)
+                
+                # Tomar captura completa de referencia
+                page.screenshot(path="capturas/paso_16_calibracion/pantalla_completa_referencia.png")
+                print("--- [DEBUG] Captura completa de referencia guardada ---", flush=True)
+                
+                # Configuración específica que funciona bien: ajuste_laterales
+                base_x = int(iframe_info['x'])
+                base_y = int(iframe_info['y'])
+                total_width = int(iframe_info['width'])
+                total_height = int(iframe_info['height'])
+                
+                # Configuración 3: ajuste_laterales (la que funciona)
+                config_final = {
+                    'nombre': 'ajuste_laterales_final',
+                    'x': base_x + 20,                    # 20px más a la derecha
+                    'y': base_y + total_height // 6,     # Empezar más abajo
+                    'width': total_width // 3 - 60,     # -20px izq y -40px der
+                    'height': total_height // 2          # 1/2 altura
+                }
+                
+                area_final = {
+                    'x': config_final['x'],
+                    'y': config_final['y'],
+                    'width': config_final['width'],
+                    'height': config_final['height']
+                }
+                
+                print(f"[CALIBRACIÓN] Configuración final: {config_final['nombre']}", flush=True)
+                print(f"[CALIBRACIÓN] Área: {area_final['width']}x{area_final['height']} en ({area_final['x']}, {area_final['y']})", flush=True)
+                
+                # Tomar solo la captura que funciona
+                screenshot_name = "capturas/paso_16_calibracion/mesa1_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name, clip=area_final)
+                print(f"[CALIBRACIÓN] Captura guardada: {screenshot_name}", flush=True)
+                
+                print(f"[CALIBRACIÓN] ¡Área perfecta identificada! Procediendo al monitoreo...", flush=True)
+                
+            else:
+                print("[CALIBRACIÓN] No se pudo obtener información del iframe", flush=True)
+                
+        except Exception as e:
+            print(f"[CALIBRACIÓN] Error en calibración: {e}", flush=True)
+        
+        # PASO 17: MONITOREO FINAL CON COORDENADAS EXACTAS
+        print("\n[PASO 17] Iniciando monitoreo con área perfecta de la Mesa 1...", flush=True)
+        try:
+            # Coordenadas exactas de la configuración 3 (ajuste_laterales)
+            # Configuración que funciona: 366x360 en (20, 120)
+            mesa1_area_final = {
+                'x': 20,      # Coordenada X de config 3
+                'y': 120,     # Coordenada Y de config 3
+                'width': 370, # Ancho de config 3
+                'height': 200 # Alto de config 3
+            }
+            
+            print(f"[MONITOREO] Área final: {mesa1_area_final['width']}x{mesa1_area_final['height']} en ({mesa1_area_final['x']}, {mesa1_area_final['y']})", flush=True)
+            print(f"[MONITOREO] Configuración 3 (ajuste_laterales) - LA QUE FUNCIONA", flush=True)
+            
+            # Tomar captura inicial con el área final
+            page.screenshot(path="capturas/paso_17_monitoreo/mesa1_area_final.png", clip=mesa1_area_final)
+            print("--- [DEBUG] Captura del área final guardada ---", flush=True)
+            
+            # Variables para el monitoreo
+            monitoring_count = 0
+            last_screenshot = None
+            cambios_detectados = []
+            
+            print("[MONITOREO] INICIANDO DETECCIÓN DE CAMBIOS EN TIEMPO REAL", flush=True)
+            print("[MONITOREO] Monitoreando solo la Mesa 1 (Baccarat) cada 2 segundos...", flush=True)
+            
+            # Monitoreo continuo de cambios
+            while True:
+                try:
+                    monitoring_count += 1
+                    
+                    # Tomar screenshot del área específica
+                    current_screenshot = f"capturas/paso_17_monitoreo/mesa1_monitor_{monitoring_count:03d}.png"
+                    page.screenshot(path=current_screenshot, clip=mesa1_area_final)
+                    
+                    # Comparar con el screenshot anterior
+                    if last_screenshot and monitoring_count > 1:
+                        try:
+                            import hashlib
+                            
+                            # Leer ambos archivos para comparar
+                            with open(current_screenshot, "rb") as f1, open(last_screenshot, "rb") as f2:
+                                current_hash = hashlib.md5(f1.read()).hexdigest()
+                                previous_hash = hashlib.md5(f2.read()).hexdigest()
+                            
+                            # Detectar cambios
+                            if current_hash != previous_hash:
+                                cambio_numero = len(cambios_detectados) + 1
+                                tiempo_transcurrido = monitoring_count * 2  # segundos
+                                
+                                print(f"\n[CAMBIO #{cambio_numero}] DETECTADO en Mesa 1! (Chequeo #{monitoring_count})", flush=True)
+                                print(f"[CAMBIO #{cambio_numero}] Tiempo: ~{tiempo_transcurrido} segundos desde inicio", flush=True)
+                                
+                                # Guardar captura del cambio con nombre especial
+                                cambio_screenshot = f"capturas/paso_17_monitoreo/CAMBIO_{cambio_numero:02d}_mesa1_{monitoring_count:03d}.png"
+                                page.screenshot(path=cambio_screenshot, clip=mesa1_area_final)
+                                
+                                print(f"[CAMBIO #{cambio_numero}] Guardado: {cambio_screenshot}", flush=True)
+                                
+                                # Registrar el cambio
+                                cambios_detectados.append({
+                                    'numero': cambio_numero,
+                                    'tiempo': tiempo_transcurrido,
+                                    'chequeo': monitoring_count,
+                                    'screenshot': cambio_screenshot
+                                })
+                                
+                                print(f"[RESULTADO] Total cambios detectados: {len(cambios_detectados)}", flush=True)
+                                
+                        except Exception as e:
+                            print(f"[DEBUG] Error comparando screenshots: {e}", flush=True)
+                    
+                    # Actualizar screenshot de referencia
+                    last_screenshot = current_screenshot
+                    
+                    # Mostrar progreso cada 30 segundos (15 chequeos)
+                    if monitoring_count % 15 == 0:
+                        minutos = (monitoring_count * 2) // 60
+                        segundos = (monitoring_count * 2) % 60
+                        print(f"[PROGRESO] Chequeo #{monitoring_count} - Tiempo: {minutos}:{segundos:02d} - Cambios: {len(cambios_detectados)}", flush=True)
+                        
+                        # Tomar captura de estado actual
+                        page.screenshot(path=f"capturas/paso_17_monitoreo/mesa1_status_{monitoring_count}.png", clip=mesa1_area_final)
+                    
+                    # Esperar antes del siguiente chequeo
+                    time.sleep(2)  # Monitorear cada 2 segundos
+                    
+                    # Límite de tiempo (15 minutos = 450 chequeos)
+                    if monitoring_count >= 450:
+                        print(f"\n[MONITOREO] Límite de tiempo alcanzado (15 minutos)", flush=True)
+                        break
+                        
+                except KeyboardInterrupt:
+                    print(f"\n[MONITOREO] Monitoreo interrumpido por el usuario", flush=True)
+                    break
+                except Exception as e:
+                    print(f"[MONITOREO] Error durante monitoreo: {e}", flush=True)
+                    time.sleep(3)
+                    continue
+            
+            # Resumen final del monitoreo
+            print(f"\n[RESUMEN FINAL] Monitoreo completado", flush=True)
+            print(f"[RESUMEN FINAL] Tiempo total: {(monitoring_count * 2) // 60}:{(monitoring_count * 2) % 60:02d} minutos", flush=True)
+            print(f"[RESUMEN FINAL] Chequeos realizados: {monitoring_count}", flush=True)
+            print(f"[RESUMEN FINAL] Cambios detectados: {len(cambios_detectados)}", flush=True)
+            
+            if cambios_detectados:
+                print(f"\n[DETALLE] Lista de cambios detectados:", flush=True)
+                for cambio in cambios_detectados:
+                    minutos = cambio['tiempo'] // 60
+                    segundos = cambio['tiempo'] % 60
+                    print(f"  {cambio['numero']:2d}. {cambio['screenshot']} - {minutos}:{segundos:02d} (chequeo #{cambio['chequeo']})", flush=True)
+                
+                print(f"\n[ANÁLISIS] Estos cambios pueden representar:", flush=True)
+                print(f"[ANÁLISIS] - Nuevas rondas de bacará", flush=True)
+                print(f"[ANÁLISIS] - Resultados: JUGADOR (azul) / BANCA (rojo) / EMPATE (verde)", flush=True)
+                print(f"[ANÁLISIS] - Cambios en cartas o números de ronda", flush=True)
+            else:
+                print(f"\n[ANÁLISIS] No se detectaron cambios durante el monitoreo", flush=True)
+                print(f"[ANÁLISIS] Esto podría indicar que el juego está pausado o sin actividad", flush=True)
+                
+        except Exception as e:
+            print(f"[MONITOREO] Error en monitoreo final: {e}", flush=True)
         
         print("\nTarea completada. El navegador permanecerá abierto por 60 segundos.", flush=True)
         print("Revisa las capturas de pantalla generadas para ver exactamente dónde se hizo clic.", flush=True)
@@ -538,7 +755,7 @@ def run(playwright):
     except Exception as e:
         print(f"\n[ERROR] El script falló: {e}", flush=True)
         print("[DEBUG] Guardando el contenido HTML en el momento del error...", flush=True)
-        save_page_content(page, filename="error_page_content.html")
+        save_page_content(page, filename="error_page_content.html", folder="capturas/debug")
         print("[INFO] Revisa los archivos HTML para debug.", flush=True)
 
     finally:
