@@ -4,11 +4,22 @@ import os
 from playwright.sync_api import sync_playwright
 from PIL import Image
 import numpy as np
+import json
+import requests
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
 PASSWORD = "160120Juan!"
 LOGIN_URL = "https://stake.com.co/es"
+
+# --- Configuración Telegram ---
+TELEGRAM_TOKEN = "7629795944:AAEPap44tS-Ial4l2nJ4FtaRPrvBtVbTVC8"
+TELEGRAM_CHAT_ID = "6078161114"
+
+emoji = {"rojo": "🔴", "azul": "🔵"}
+
+def formatear_sugerencia_iconos(sugerencia):
+    return " ".join([f"{i+1}{emoji[color]}" for i, color in enumerate(sugerencia)])
 
 def create_folders():
     """Crear estructura de carpetas para organizar las capturas."""
@@ -60,6 +71,17 @@ def detectar_color_predominante(img_path):
         return 'azul'
     else:
         return 'otro'
+
+def enviar_alerta_telegram(mensaje, captura_path):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+    with open(captura_path, "rb") as image:
+        files = {"photo": image}
+        data = {"chat_id": TELEGRAM_CHAT_ID, "caption": mensaje}
+        try:
+            response = requests.post(url, files=files, data=data)
+            print(f"[TELEGRAM] Enviado: {response.status_code}")
+        except Exception as e:
+            print(f"[TELEGRAM] Error enviando alerta: {e}")
 
 def run(playwright):
     browser = playwright.chromium.launch(headless=False)
@@ -685,10 +707,9 @@ def run(playwright):
         except Exception as e:
             print(f"[CALIBRACIÓN] Error en calibración: {e}", flush=True)
         
-        # PASO 17: MONITOREO GLOBAL DE SEIS MESAS
-        print("\n[PASO 17] Monitoreo GLOBAL de SEIS mesas (analiza solo el letrero, guarda la mesa completa)...", flush=True)
+        # PASO 17: MONITOREO GLOBAL DE SEIS MESAS CON ALERTAS DE PATRONES
+        print("\n[PASO 17] Monitoreo GLOBAL de SEIS mesas (analiza solo el letrero, guarda la mesa completa, y detecta señales)...", flush=True)
         try:
-            # Definir áreas de las seis mesas (ajustar si es necesario)
             mesa_areas = {
                 'mesa1': {'x': 20,  'y': 120, 'width': 370, 'height': 200},
                 'mesa2': {'x': 420, 'y': 120, 'width': 370, 'height': 200},
@@ -697,7 +718,6 @@ def run(playwright):
                 'mesa5': {'x': 420, 'y': 340, 'width': 370, 'height': 200},
                 'mesa6': {'x': 820, 'y': 340, 'width': 370, 'height': 200},
             }
-            # Definir áreas del letrero de resultado para cada mesa
             letrero_areas = {
                 'mesa1': {'x': 155,      'y': 220, 'width': 120, 'height': 40},
                 'mesa2': {'x': 155+400,  'y': 220, 'width': 120, 'height': 40},
@@ -706,19 +726,139 @@ def run(playwright):
                 'mesa5': {'x': 155+400,  'y': 440, 'width': 120, 'height': 40},
                 'mesa6': {'x': 155+800,  'y': 440, 'width': 120, 'height': 40},
             }
-            # Crear subcarpetas para cada mesa
             for mesa in mesa_areas:
                 os.makedirs(f"capturas/mesa_resultados/{mesa}", exist_ok=True)
+                os.makedirs(f"logs", exist_ok=True)
 
-            color_labels = ['rojo', 'azul', 'verde']
+            color_labels = ['rojo', 'azul']  # verde ignorado
             cooldowns = {mesa: 0 for mesa in mesa_areas}
             resultado_counts = {mesa: 0 for mesa in mesa_areas}
             monitoring_count = 0
-            print("[MONITOREO] INICIANDO monitoreo global de SEIS mesas (analizando solo el letrero)...", flush=True)
+            historiales = {mesa: [] for mesa in mesa_areas}  # historial de resultados por mesa
+            max_historial = 20
+            log_files = {mesa: open(f"logs/{mesa}_alertas.log", "a", encoding="utf-8") for mesa in mesa_areas}
+
+            def log_alerta(mesa, mensaje, captura_path, sugerencia_lista=None):
+                sugerencia_iconos = ""
+                if sugerencia_lista:
+                    sugerencia_iconos = f"\nSugerencia: {formatear_sugerencia_iconos(sugerencia_lista)}"
+                log_line = f"[{mesa.upper()}] {mensaje}{sugerencia_iconos}\n  Captura: {captura_path}\n{'-'*60}\n"
+                print(log_line, flush=True)
+                log_files[mesa].write(log_line)
+                log_files[mesa].flush()
+                # Enviar alerta a Telegram
+                try:
+                    enviar_alerta_telegram(f"[{mesa.upper()}] {mensaje}{sugerencia_iconos}", captura_path)
+                except Exception as e:
+                    print(f"[TELEGRAM] Error al intentar enviar alerta: {e}")
+
+            def invertir_secuencia(seq):
+                return [('rojo' if c=='azul' else 'azul') for c in seq]
+
+            # Señal 1: 5 rojos seguidos
+            def detectar_senal_1(hist, captura_path, mesa):
+                if len(hist) < 5:
+                    return
+                if all(h == 'rojo' for h in hist[-5:]):
+                    sugerencia = ', '.join(['azul']*6)
+                    log_alerta(
+                        mesa,
+                        f"SEÑAL 1 detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        captura_path,
+                        sugerencia_lista=["azul"]*6
+                    )
+
+            # Señal 1 AZUL: 5 azules seguidos
+            def detectar_senal_1_azul(hist, captura_path, mesa):
+                if len(hist) < 5:
+                    return
+                if all(h == 'azul' for h in hist[-5:]):
+                    sugerencia = ', '.join(['rojo']*6)
+                    log_alerta(
+                        mesa,
+                        f"SEÑAL 1 AZUL detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        captura_path,
+                        sugerencia_lista=['rojo']*6
+                    )
+
+            # Señal 2: intercalado mínimo 5 veces, empezando en rojo
+            def detectar_senal_2(hist, captura_path, mesa):
+                if len(hist) < 6:
+                    return
+                intercalado_rojo = True
+                for i in range(-5, 0):
+                    if hist[i] == hist[i-1]:
+                        intercalado_rojo = False
+                        break
+                if intercalado_rojo and hist[-6] == 'rojo':
+                    sugerencia = ', '.join(['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul'])
+                    log_alerta(
+                        mesa,
+                        f"SEÑAL 2 detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        captura_path,
+                        sugerencia_lista=['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul']
+                    )
+
+            # Señal 2 AZUL: intercalado mínimo 5 veces, empezando en azul
+            def detectar_senal_2_azul(hist, captura_path, mesa):
+                if len(hist) < 6:
+                    return
+                intercalado_azul = True
+                for i in range(-5, 0):
+                    if hist[i] == hist[i-1]:
+                        intercalado_azul = False
+                        break
+                if intercalado_azul and hist[-6] == 'azul':
+                    sugerencia = ', '.join(['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo'])
+                    log_alerta(
+                        mesa,
+                        f"SEÑAL 2 AZUL detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        captura_path,
+                        sugerencia_lista=['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo']
+                    )
+
+            # Señal 3: patrón tipo rojo, rojo, azul, rojo, rojo, azul, rojo, rojo
+            def detectar_senal_3(hist, captura_path, mesa):
+                if len(hist) < 8:
+                    return
+                patron = hist[-8:]
+                if patron[0] == patron[1] == patron[3] == patron[4] == patron[6] == patron[7] == 'rojo' and \
+                   patron[2] == patron[5] == 'azul':
+                    final = patron[-1]
+                    if final == 'rojo':
+                        sugerencia = ', '.join(['rojo', 'azul', 'rojo', 'rojo', 'rojo'])
+                    else:
+                        sugerencia = ', '.join(['azul', 'rojo', 'rojo', 'rojo', 'rojo', 'rojo'])
+                    log_alerta(
+                        mesa,
+                        f"SEÑAL 3 detectada: {', '.join(patron)}\n  Sugerencia: Apostar {sugerencia}",
+                        captura_path,
+                        sugerencia_lista=[sugerencia]
+                    )
+
+            # Señal 3 AZUL: patrón tipo azul, azul, rojo, azul, azul, rojo, azul, azul
+            def detectar_senal_3_azul(hist, captura_path, mesa):
+                if len(hist) < 8:
+                    return
+                patron = hist[-8:]
+                if patron[0] == patron[1] == patron[3] == patron[4] == patron[6] == patron[7] == 'azul' and \
+                   patron[2] == patron[5] == 'rojo':
+                    final = patron[-1]
+                    if final == 'azul':
+                        sugerencia = ', '.join(['azul', 'rojo', 'azul', 'azul', 'azul'])
+                    else:
+                        sugerencia = ', '.join(['rojo', 'azul', 'azul', 'azul', 'azul', 'azul'])
+                    log_alerta(
+                        mesa,
+                        f"SEÑAL 3 AZUL detectada: {', '.join(patron)}\n  Sugerencia: Apostar {sugerencia}",
+                        captura_path,
+                        sugerencia_lista=[sugerencia]
+                    )
+
+            print("[MONITOREO] INICIANDO monitoreo global de SEIS mesas (analizando solo el letrero y detectando señales)...", flush=True)
             while True:
                 try:
                     monitoring_count += 1
-                    # Captura de pantalla completa
                     full_path = f"capturas/mesa_resultados/tmp_full_{monitoring_count:04d}.png"
                     page.screenshot(path=full_path)
 
@@ -726,23 +866,28 @@ def run(playwright):
                         if cooldowns[mesa] > 0:
                             cooldowns[mesa] -= 1
                             continue
-                        # Recortar el área del letrero para análisis
                         letrero_img_path = f"capturas/mesa_resultados/tmp_{mesa}_letrero_{monitoring_count:04d}.png"
                         page.screenshot(path=letrero_img_path, clip=letrero_areas[mesa])
                         color = detectar_color_predominante(letrero_img_path)
                         if color in color_labels:
                             resultado_counts[mesa] += 1
                             out_path = f"capturas/mesa_resultados/{mesa}/{resultado_counts[mesa]:04d}_{mesa}_resultado_{color}.png"
-                            # Guardar la imagen de la mesa completa
                             page.screenshot(path=out_path, clip=mesa_areas[mesa])
-                            print(f"[RESULTADO {mesa.upper()} #{resultado_counts[mesa]}] {color.upper()} detectado - Captura: {out_path}", flush=True)
-                            cooldowns[mesa] = 2  # Saltar las siguientes 2 rondas
-                        # Borrar imagen temporal del letrero
+                            historiales[mesa].append(color)
+                            if len(historiales[mesa]) > max_historial:
+                                historiales[mesa] = historiales[mesa][-max_historial:]
+                            # Detectar señales
+                            detectar_senal_1(historiales[mesa], out_path, mesa)
+                            detectar_senal_1_azul(historiales[mesa], out_path, mesa)
+                            detectar_senal_2(historiales[mesa], out_path, mesa)
+                            detectar_senal_2_azul(historiales[mesa], out_path, mesa)
+                            detectar_senal_3(historiales[mesa], out_path, mesa)
+                            detectar_senal_3_azul(historiales[mesa], out_path, mesa)
+                            cooldowns[mesa] = 2
                         try:
                             os.remove(letrero_img_path)
                         except Exception:
                             pass
-                    # Borrar imagen temporal de pantalla completa
                     try:
                         os.remove(full_path)
                     except Exception:
@@ -761,6 +906,7 @@ def run(playwright):
             print(f"\n[RESUMEN FINAL] Resultados detectados:")
             for mesa in mesa_areas:
                 print(f"  - {mesa}: {resultado_counts[mesa]}", flush=True)
+                log_files[mesa].close()
             print(f"[RESUMEN FINAL] Todas las capturas están en capturas/mesa_resultados/<mesa>/ y ordenadas cronológicamente.", flush=True)
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo global: {e}", flush=True)
