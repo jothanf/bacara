@@ -597,36 +597,86 @@ def run(playwright):
                 page.screenshot(path="capturas/paso_16_calibracion/pantalla_completa_referencia.png")
                 print("--- [DEBUG] Captura completa de referencia guardada ---", flush=True)
                 
-                # Configuración específica que funciona bien: ajuste_laterales
-                base_x = int(iframe_info['x'])
-                base_y = int(iframe_info['y'])
-                total_width = int(iframe_info['width'])
-                total_height = int(iframe_info['height'])
-                
-                # Configuración 3: ajuste_laterales (la que funciona)
-                config_final = {
-                    'nombre': 'ajuste_laterales_final',
-                    'x': base_x + 20,                    # 20px más a la derecha
-                    'y': base_y + total_height // 6,     # Empezar más abajo
-                    'width': total_width // 3 - 60,     # -20px izq y -40px der
-                    'height': total_height // 2          # 1/2 altura
+                # Usar el área de resultado para la calibración, igual que en el monitoreo
+                mesa1_area_final = {
+                    'x': 20,
+                    'y': 120,
+                    'width': 370,
+                    'height': 200
                 }
-                
-                area_final = {
-                    'x': config_final['x'],
-                    'y': config_final['y'],
-                    'width': config_final['width'],
-                    'height': config_final['height']
-                }
-                
-                print(f"[CALIBRACIÓN] Configuración final: {config_final['nombre']}", flush=True)
-                print(f"[CALIBRACIÓN] Área: {area_final['width']}x{area_final['height']} en ({area_final['x']}, {area_final['y']})", flush=True)
-                
-                # Tomar solo la captura que funciona
                 screenshot_name = "capturas/paso_16_calibracion/mesa1_config_03_ajuste_laterales.png"
-                page.screenshot(path=screenshot_name, clip=area_final)
+                page.screenshot(path=screenshot_name, clip=mesa1_area_final)
                 print(f"[CALIBRACIÓN] Captura guardada: {screenshot_name}", flush=True)
-                
+
+                # Mesa 1 (arriba izquierda)
+                mesa1_area = {
+                    'x': mesa1_area_final['x'],
+                    'y': mesa1_area_final['y'],
+                    'width': mesa1_area_final['width'],
+                    'height': mesa1_area_final['height']
+                }
+                screenshot_name1 = "capturas/paso_16_calibracion/mesa1_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name1, clip=mesa1_area)
+                print(f"[CALIBRACIÓN] Captura de Mesa 1 guardada: {screenshot_name1}", flush=True)
+
+                # Mesa 2 (arriba centro)
+                mesa2_area = {
+                    'x': mesa1_area_final['x'] + 400,
+                    'y': mesa1_area_final['y'],
+                    'width': mesa1_area_final['width'],
+                    'height': mesa1_area_final['height']
+                }
+                screenshot_name2 = "capturas/paso_16_calibracion/mesa2_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name2, clip=mesa2_area)
+                print(f"[CALIBRACIÓN] Captura de Mesa 2 guardada: {screenshot_name2}", flush=True)
+
+                # Mesa 3 (arriba derecha)
+                mesa3_area = {
+                    'x': mesa1_area_final['x'] + 800,
+                    'y': mesa1_area_final['y'],
+                    'width': mesa1_area_final['width'],
+                    'height': mesa1_area_final['height']
+                }
+                screenshot_name3 = "capturas/paso_16_calibracion/mesa3_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name3, clip=mesa3_area)
+                print(f"[CALIBRACIÓN] Captura de Mesa 3 guardada: {screenshot_name3}", flush=True)
+
+                # Coordenada y para la segunda fila de mesas
+                y_segunda_fila = mesa1_area_final['y'] + mesa1_area_final['height'] + 20
+
+                # Mesa 4 (abajo izquierda)
+                mesa4_area = {
+                    'x': mesa1_area_final['x'],
+                    'y': y_segunda_fila,
+                    'width': mesa1_area_final['width'],
+                    'height': mesa1_area_final['height']
+                }
+                screenshot_name4 = "capturas/paso_16_calibracion/mesa4_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name4, clip=mesa4_area)
+                print(f"[CALIBRACIÓN] Captura de Mesa 4 guardada: {screenshot_name4}", flush=True)
+
+                # Mesa 5 (abajo centro)
+                mesa5_area = {
+                    'x': mesa1_area_final['x'] + 400,
+                    'y': y_segunda_fila,
+                    'width': mesa1_area_final['width'],
+                    'height': mesa1_area_final['height']
+                }
+                screenshot_name5 = "capturas/paso_16_calibracion/mesa5_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name5, clip=mesa5_area)
+                print(f"[CALIBRACIÓN] Captura de Mesa 5 guardada: {screenshot_name5}", flush=True)
+
+                # Mesa 6 (abajo derecha)
+                mesa6_area = {
+                    'x': mesa1_area_final['x'] + 800,
+                    'y': y_segunda_fila,
+                    'width': mesa1_area_final['width'],
+                    'height': mesa1_area_final['height']
+                }
+                screenshot_name6 = "capturas/paso_16_calibracion/mesa6_config_03_ajuste_laterales.png"
+                page.screenshot(path=screenshot_name6, clip=mesa6_area)
+                print(f"[CALIBRACIÓN] Captura de Mesa 6 guardada: {screenshot_name6}", flush=True)
+
                 print(f"[CALIBRACIÓN] ¡Área perfecta identificada! Procediendo al monitoreo...", flush=True)
                 
             else:
