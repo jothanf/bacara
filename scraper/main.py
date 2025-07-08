@@ -685,62 +685,68 @@ def run(playwright):
         except Exception as e:
             print(f"[CALIBRACIÓN] Error en calibración: {e}", flush=True)
         
-        # PASO 17: MONITOREO FINAL SOLO EN EL LETRERO DETECTADO (GUARDAR SIEMPRE QUE SEA COLOR)
-        print("\n[PASO 17] Monitoreo SOLO en el área del letrero de resultado (80x100 en y=180)...", flush=True)
+        # PASO 17: MONITOREO GLOBAL DE SEIS MESAS
+        print("\n[PASO 17] Monitoreo GLOBAL de SEIS mesas (analiza solo el letrero, guarda la mesa completa)...", flush=True)
         try:
-            mesa1_area_final = {
-                'x': 20,
-                'y': 120,
-                'width': 370,
-                'height': 200
+            # Definir áreas de las seis mesas (ajustar si es necesario)
+            mesa_areas = {
+                'mesa1': {'x': 20,  'y': 120, 'width': 370, 'height': 200},
+                'mesa2': {'x': 420, 'y': 120, 'width': 370, 'height': 200},
+                'mesa3': {'x': 820, 'y': 120, 'width': 370, 'height': 200},
+                'mesa4': {'x': 20,  'y': 340, 'width': 370, 'height': 200},
+                'mesa5': {'x': 420, 'y': 340, 'width': 370, 'height': 200},
+                'mesa6': {'x': 820, 'y': 340, 'width': 370, 'height': 200},
             }
-            letrero_area = {
-                'x': 155,
-                'y': 220,
-                'width': 120,
-                'height': 40
+            # Definir áreas del letrero de resultado para cada mesa
+            letrero_areas = {
+                'mesa1': {'x': 155,      'y': 220, 'width': 120, 'height': 40},
+                'mesa2': {'x': 155+400,  'y': 220, 'width': 120, 'height': 40},
+                'mesa3': {'x': 155+800,  'y': 220, 'width': 120, 'height': 40},
+                'mesa4': {'x': 155,      'y': 440, 'width': 120, 'height': 40},
+                'mesa5': {'x': 155+400,  'y': 440, 'width': 120, 'height': 40},
+                'mesa6': {'x': 155+800,  'y': 440, 'width': 120, 'height': 40},
             }
-            print(f"[MONITOREO] Área del letrero: {letrero_area['width']}x{letrero_area['height']} en ({letrero_area['x']}, {letrero_area['y']})", flush=True)
-            
-            # Tomar una captura de referencia de la zona del letrero para verificar el área
-            print("[MONITOREO] Tomando captura de referencia de la zona del letrero...", flush=True)
-            letrero_reference_path = "capturas/paso_17_monitoreo/00_referencia_zona_letrero.png"
-            page.screenshot(path=letrero_reference_path, clip=letrero_area)
-            print(f"[MONITOREO] Captura de referencia guardada: {letrero_reference_path}", flush=True)
-            
-            import numpy as np
-            from PIL import Image
-            import hashlib
-            
-            monitoring_count = 0
-            cambio_count = 0
+            # Crear subcarpetas para cada mesa
+            for mesa in mesa_areas:
+                os.makedirs(f"capturas/mesa_resultados/{mesa}", exist_ok=True)
+
             color_labels = ['rojo', 'azul', 'verde']
-            
-            print("[MONITOREO] INICIANDO DETECCIÓN DE RESULTADOS POR COLOR (guarda cada vez que sea azul, rojo o verde)", flush=True)
+            cooldowns = {mesa: 0 for mesa in mesa_areas}
+            resultado_counts = {mesa: 0 for mesa in mesa_areas}
+            monitoring_count = 0
+            print("[MONITOREO] INICIANDO monitoreo global de SEIS mesas (analizando solo el letrero)...", flush=True)
             while True:
                 try:
                     monitoring_count += 1
-                    letrero_path = f"capturas/paso_17_monitoreo/tmp_letrero_{monitoring_count:04d}.png"
-                    page.screenshot(path=letrero_path, clip=letrero_area)
-                    color = detectar_color_predominante(letrero_path)
-                    
-                    if color in color_labels:
-                        cambio_count += 1
-                        # Guardar captura de la mesa completa
-                        mesa_path = f"capturas/paso_17_monitoreo/{cambio_count:04d}_mesa1_resultado_{color}.png"
-                        page.screenshot(path=mesa_path, clip=mesa1_area_final)
-                        
-                        print(f"[RESULTADO #{cambio_count}] {color.upper()} detectado - Captura: {mesa_path}", flush=True)
-                        
-                        # Esperar 3 segundos para evitar detectar múltiples veces el mismo resultado
-                        print(f"[MONITOREO] Esperando 3 segundos para evitar detección múltiple...", flush=True)
-                        time.sleep(3)
-                    
+                    # Captura de pantalla completa
+                    full_path = f"capturas/mesa_resultados/tmp_full_{monitoring_count:04d}.png"
+                    page.screenshot(path=full_path)
+
+                    for mesa in mesa_areas:
+                        if cooldowns[mesa] > 0:
+                            cooldowns[mesa] -= 1
+                            continue
+                        # Recortar el área del letrero para análisis
+                        letrero_img_path = f"capturas/mesa_resultados/tmp_{mesa}_letrero_{monitoring_count:04d}.png"
+                        page.screenshot(path=letrero_img_path, clip=letrero_areas[mesa])
+                        color = detectar_color_predominante(letrero_img_path)
+                        if color in color_labels:
+                            resultado_counts[mesa] += 1
+                            out_path = f"capturas/mesa_resultados/{mesa}/{resultado_counts[mesa]:04d}_{mesa}_resultado_{color}.png"
+                            # Guardar la imagen de la mesa completa
+                            page.screenshot(path=out_path, clip=mesa_areas[mesa])
+                            print(f"[RESULTADO {mesa.upper()} #{resultado_counts[mesa]}] {color.upper()} detectado - Captura: {out_path}", flush=True)
+                            cooldowns[mesa] = 2  # Saltar las siguientes 2 rondas
+                        # Borrar imagen temporal del letrero
+                        try:
+                            os.remove(letrero_img_path)
+                        except Exception:
+                            pass
+                    # Borrar imagen temporal de pantalla completa
                     try:
-                        os.remove(letrero_path)
+                        os.remove(full_path)
                     except Exception:
                         pass
-                    
                     time.sleep(2)
                     if monitoring_count >= 450:
                         print(f"\n[MONITOREO] Límite de tiempo alcanzado (15 minutos)", flush=True)
@@ -752,12 +758,12 @@ def run(playwright):
                     print(f"[MONITOREO] Error durante monitoreo: {e}", flush=True)
                     time.sleep(3)
                     continue
-            
-            print(f"\n[RESUMEN FINAL] Resultados detectados: {cambio_count}", flush=True)
-            print(f"[RESUMEN FINAL] Todas las capturas están en capturas/paso_17_monitoreo/ y ordenadas cronológicamente.", flush=True)
-            print(f"[RESUMEN FINAL] Revisa '00_referencia_zona_letrero.png' para ver exactamente qué área estamos analizando.", flush=True)
+            print(f"\n[RESUMEN FINAL] Resultados detectados:")
+            for mesa in mesa_areas:
+                print(f"  - {mesa}: {resultado_counts[mesa]}", flush=True)
+            print(f"[RESUMEN FINAL] Todas las capturas están en capturas/mesa_resultados/<mesa>/ y ordenadas cronológicamente.", flush=True)
         except Exception as e:
-            print(f"[MONITOREO] Error en monitoreo final: {e}", flush=True)
+            print(f"[MONITOREO] Error en monitoreo global: {e}", flush=True)
         
         print("\nTarea completada. El navegador permanecerá abierto por 60 segundos.", flush=True)
         print("Revisa las capturas de pantalla generadas para ver exactamente dónde se hizo clic.", flush=True)
