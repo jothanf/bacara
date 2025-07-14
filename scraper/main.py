@@ -6,6 +6,7 @@ from PIL import Image
 import numpy as np
 import json
 import requests
+from datetime import datetime
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
@@ -13,13 +14,20 @@ PASSWORD = "160120Juan!"
 LOGIN_URL = "https://stake.com.co/es"
 
 # --- Configuración Telegram ---
-TELEGRAM_TOKEN = "7629795944:AAEPap44tS-Ial4l2nJ4FtaRPrvBtVbTVC8"
-TELEGRAM_CHAT_ID = "6078161114"
+TELEGRAM_TOKEN_PERSONAL = "7629795944:AAEPap44tS-Ial4l2nJ4FtaRPrvBtVbTVC8"  # Para chat personal
+TELEGRAM_TOKEN_GRUPOS = "7792602918:AAFW7atIz-5qNaHVItDPv1C-hd2M679WA8s"  # Para chats de estadísticas y señales
+TELEGRAM_CHAT_ID = "6078161114"  # Chat personal
+TELEGRAM_CHAT_ESTADISTICAS = "-1002465111695"  # Chat de estadísticas
+TELEGRAM_CHAT_SEÑALES = "-1002539477075"  # Chat de señales
 
 emoji = {"rojo": "🔴", "azul": "🔵"}
 
 def formatear_sugerencia_iconos(sugerencia):
     return " ".join([f"{i+1}{emoji[color]}" for i, color in enumerate(sugerencia)])
+
+def formatear_sugerencia_texto(sugerencia):
+    """Formatea sugerencias para consola sin emojis."""
+    return " ".join([f"{i+1}.{color.upper()}" for i, color in enumerate(sugerencia)])
 
 def create_folders():
     """Crear estructura de carpetas para organizar las capturas."""
@@ -73,7 +81,7 @@ def detectar_color_predominante(img_path):
         return 'otro'
 
 def enviar_alerta_telegram(mensaje, captura_path):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_PERSONAL}/sendPhoto"
     with open(captura_path, "rb") as image:
         files = {"photo": image}
         data = {"chat_id": TELEGRAM_CHAT_ID, "caption": mensaje}
@@ -154,7 +162,7 @@ def run(playwright):
         save_page_content(page, filename="game_page_complete.html", folder="capturas/paso_10_juego")
         
         print("[PASO 10] Buscando el botón 'Menu' DENTRO del iframe del juego...", flush=True)
-        
+        time.sleep(5)
         menu_found = False
         
         # ESTRATEGIA MEJORADA: Hacer clic específicamente DENTRO del iframe del juego
@@ -739,18 +747,82 @@ def run(playwright):
             log_files = {mesa: open(f"logs/{mesa}_alertas.log", "a", encoding="utf-8") for mesa in mesa_areas}
 
             def log_alerta(mesa, mensaje, captura_path, sugerencia_lista=None):
-                sugerencia_iconos = ""
+                # Para consola: usar texto simple sin emojis
+                sugerencia_texto = ""
                 if sugerencia_lista:
-                    sugerencia_iconos = f"\nSugerencia: {formatear_sugerencia_iconos(sugerencia_lista)}"
-                log_line = f"[{mesa.upper()}] {mensaje}{sugerencia_iconos}\n  Captura: {captura_path}\n{'-'*60}\n"
+                    sugerencia_texto = f"\nSugerencia: {formatear_sugerencia_texto(sugerencia_lista)}"
+                log_line = f"[{mesa.upper()}] {mensaje}{sugerencia_texto}\n  Captura: {captura_path}\n{'-'*60}\n"
                 print(log_line, flush=True)
                 log_files[mesa].write(log_line)
                 log_files[mesa].flush()
-                # Enviar alerta a Telegram
+                
+                # Enviar alerta a Telegram con formato mejorado (con emojis)
                 try:
-                    enviar_alerta_telegram(f"[{mesa.upper()}] {mensaje}{sugerencia_iconos}", captura_path)
+                    # Crear mensaje mejorado para Telegram con formato limpio
+                    mensaje_telegram = f"<b>{mesa.upper()}</b>\n"
+                    mensaje_telegram += f"Patrón: {mensaje}\n"
+                    
+                    if sugerencia_lista:
+                        prediccion_texto = " ".join([f"{i}.{emoji[color]}" for i, color in enumerate(sugerencia_lista, 1)])
+                        mensaje_telegram += f"Apostar: {prediccion_texto}\n"
+                    
+                    mensaje_telegram += f"Hora: {datetime.now().strftime('%H:%M:%S')}"
+                    
+                    # Enviar al chat personal
+                    enviar_alerta_telegram(mensaje_telegram, captura_path)
+                    
+                    # Enviar al chat de señales
+                    # try:
+                    #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                    #     with open(captura_path, "rb") as image:
+                    #         files = {"photo": image}
+                    #         data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
+                    #         response = requests.post(url, files=files, data=data)
+                    #         if response.status_code == 200:
+                    #             print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
+                    #         else:
+                    #             print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
+                    # except Exception as e:
+                    #     print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
+                        
                 except Exception as e:
                     print(f"[TELEGRAM] Error al intentar enviar alerta: {e}")
+
+            def enviar_resultado_mesa_telegram(mesa, color, numero_resultado, captura_path):
+                """Envía el resultado de una mesa específica al chat de Telegram."""
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                mensaje = f"<b>RESULTADO {mesa.upper()}</b>\n"
+                mensaje += f"Color: <b>{color.upper()}</b>\n"
+                mensaje += f"Hora: {timestamp}\n"
+                mensaje += f"Resultado #{numero_resultado}"
+                
+                # Enviar al chat personal (como antes)
+                try:
+                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_PERSONAL}/sendPhoto"
+                    with open(captura_path, "rb") as image:
+                        files = {"photo": image}
+                        data = {"chat_id": TELEGRAM_CHAT_ID, "caption": mensaje, "parse_mode": "HTML"}
+                        response = requests.post(url, files=files, data=data)
+                        if response.status_code == 200:
+                            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat personal")
+                        else:
+                            print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat personal: {response.status_code}")
+                except Exception as e:
+                    print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat personal: {e}")
+                
+                # Enviar al chat de estadísticas
+                # try:
+                #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                #     with open(captura_path, "rb") as image:
+                #         files = {"photo": image}
+                #         data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
+                #         response = requests.post(url, files=files, data=data)
+                #         if response.status_code == 200:
+                #             print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
+                #         else:
+                #             print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
+                # except Exception as e:
+                #     print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
 
             def invertir_secuencia(seq):
                 return [('rojo' if c=='azul' else 'azul') for c in seq]
@@ -760,12 +832,12 @@ def run(playwright):
                 if len(hist) < 5:
                     return
                 if all(h == 'rojo' for h in hist[-5:]):
-                    sugerencia = ', '.join(['azul']*6)
+                    sugerencia = ['azul']*6
                     log_alerta(
                         mesa,
-                        f"SEÑAL 1 detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        f"5 ROJOS CONSECUTIVOS detectados: {', '.join(hist[-7:])}",
                         captura_path,
-                        sugerencia_lista=["azul"]*6
+                        sugerencia_lista=sugerencia
                     )
 
             # Señal 1 AZUL: 5 azules seguidos
@@ -773,12 +845,12 @@ def run(playwright):
                 if len(hist) < 5:
                     return
                 if all(h == 'azul' for h in hist[-5:]):
-                    sugerencia = ', '.join(['rojo']*6)
+                    sugerencia = ['rojo']*6
                     log_alerta(
                         mesa,
-                        f"SEÑAL 1 AZUL detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        f"5 AZULES CONSECUTIVOS detectados: {', '.join(hist[-7:])}",
                         captura_path,
-                        sugerencia_lista=['rojo']*6
+                        sugerencia_lista=sugerencia
                     )
 
             # Señal 2: intercalado mínimo 5 veces, empezando en rojo
@@ -791,12 +863,12 @@ def run(playwright):
                         intercalado_rojo = False
                         break
                 if intercalado_rojo and hist[-6] == 'rojo':
-                    sugerencia = ', '.join(['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul'])
+                    sugerencia = ['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul']
                     log_alerta(
                         mesa,
-                        f"SEÑAL 2 detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        f"PATRÓN INTERCALADO ROJO-AZUL detectado: {', '.join(hist[-7:])}",
                         captura_path,
-                        sugerencia_lista=['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul']
+                        sugerencia_lista=sugerencia
                     )
 
             # Señal 2 AZUL: intercalado mínimo 5 veces, empezando en azul
@@ -809,12 +881,12 @@ def run(playwright):
                         intercalado_azul = False
                         break
                 if intercalado_azul and hist[-6] == 'azul':
-                    sugerencia = ', '.join(['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo'])
+                    sugerencia = ['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo']
                     log_alerta(
                         mesa,
-                        f"SEÑAL 2 AZUL detectada: {', '.join(hist[-7:])}\n  Sugerencia: Apostar {sugerencia} (6 rondas)",
+                        f"PATRÓN INTERCALADO AZUL-ROJO detectado: {', '.join(hist[-7:])}",
                         captura_path,
-                        sugerencia_lista=['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo']
+                        sugerencia_lista=sugerencia
                     )
 
             # Señal 3: patrón tipo rojo, rojo, azul, rojo, rojo, azul, rojo, rojo
@@ -826,14 +898,14 @@ def run(playwright):
                    patron[2] == patron[5] == 'azul':
                     final = patron[-1]
                     if final == 'rojo':
-                        sugerencia = ', '.join(['rojo', 'azul', 'rojo', 'rojo', 'rojo'])
+                        sugerencia = ['rojo', 'azul', 'rojo', 'rojo', 'rojo']
                     else:
-                        sugerencia = ', '.join(['azul', 'rojo', 'rojo', 'rojo', 'rojo', 'rojo'])
+                        sugerencia = ['azul', 'rojo', 'rojo', 'rojo', 'rojo', 'rojo']
                     log_alerta(
                         mesa,
-                        f"SEÑAL 3 detectada: {', '.join(patron)}\n  Sugerencia: Apostar {sugerencia}",
+                        f"PATRÓN ROJO-ROJO-AZUL detectado: {', '.join(patron)}",
                         captura_path,
-                        sugerencia_lista=[sugerencia]
+                        sugerencia_lista=sugerencia
                     )
 
             # Señal 3 AZUL: patrón tipo azul, azul, rojo, azul, azul, rojo, azul, azul
@@ -845,17 +917,48 @@ def run(playwright):
                    patron[2] == patron[5] == 'rojo':
                     final = patron[-1]
                     if final == 'azul':
-                        sugerencia = ', '.join(['azul', 'rojo', 'azul', 'azul', 'azul'])
+                        sugerencia = ['azul', 'rojo', 'azul', 'azul', 'azul']
                     else:
-                        sugerencia = ', '.join(['rojo', 'azul', 'azul', 'azul', 'azul', 'azul'])
+                        sugerencia = ['rojo', 'azul', 'azul', 'azul', 'azul', 'azul']
                     log_alerta(
                         mesa,
-                        f"SEÑAL 3 AZUL detectada: {', '.join(patron)}\n  Sugerencia: Apostar {sugerencia}",
+                        f"PATRÓN AZUL-AZUL-ROJO detectado: {', '.join(patron)}",
                         captura_path,
-                        sugerencia_lista=[sugerencia]
+                        sugerencia_lista=sugerencia
                     )
 
             print("[MONITOREO] INICIANDO monitoreo global de SEIS mesas (analizando solo el letrero y detectando señales)...", flush=True)
+            
+            # Mensaje de inicio del monitoreo
+            mensaje_inicio = f"<b>MONITOREO INICIADO</b>\n"
+            mensaje_inicio += f"Monitoreando: 6 mesas de Baccarat\n"
+            mensaje_inicio += f"Hora: {datetime.now().strftime('%H:%M:%S')}\n"
+            mensaje_inicio += f"Estado: Enviando todos los resultados con capturas"
+            
+            # Enviar mensaje de inicio al chat personal
+            try:
+                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_PERSONAL}/sendMessage"
+                data = {"chat_id": TELEGRAM_CHAT_ID, "text": mensaje_inicio, "parse_mode": "HTML"}
+                response = requests.post(url, data=data)
+                if response.status_code == 200:
+                    print("[TELEGRAM] Mensaje de inicio enviado al chat personal")
+                else:
+                    print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat personal: {response.status_code}")
+            except Exception as e:
+                print(f"[TELEGRAM] Error enviando mensaje de inicio al chat personal: {e}")
+            
+            # Enviar mensaje de inicio al chat de estadísticas
+            # try:
+            #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+            #     data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
+            #     response = requests.post(url, data=data)
+            #     if response.status_code == 200:
+            #         print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
+            #     else:
+            #         print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
+            # except Exception as e:
+            #     print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
+            
             while True:
                 try:
                     monitoring_count += 1
@@ -873,6 +976,10 @@ def run(playwright):
                             resultado_counts[mesa] += 1
                             out_path = f"capturas/mesa_resultados/{mesa}/{resultado_counts[mesa]:04d}_{mesa}_resultado_{color}.png"
                             page.screenshot(path=out_path, clip=mesa_areas[mesa])
+                            
+                            # ENVIAR RESULTADO A TELEGRAM
+                            enviar_resultado_mesa_telegram(mesa, color, resultado_counts[mesa], out_path)
+                            
                             historiales[mesa].append(color)
                             if len(historiales[mesa]) > max_historial:
                                 historiales[mesa] = historiales[mesa][-max_historial:]
@@ -908,6 +1015,38 @@ def run(playwright):
                 print(f"  - {mesa}: {resultado_counts[mesa]}", flush=True)
                 log_files[mesa].close()
             print(f"[RESUMEN FINAL] Todas las capturas están en capturas/mesa_resultados/<mesa>/ y ordenadas cronológicamente.", flush=True)
+            
+            # Mensaje de resumen final
+            mensaje_final = f"<b>MONITOREO FINALIZADO</b>\n"
+            mensaje_final += f"Hora: {datetime.now().strftime('%H:%M:%S')}\n"
+            mensaje_final += f"Total de resultados por mesa:\n"
+            for mesa in mesa_areas:
+                mensaje_final += f"• {mesa.upper()}: {resultado_counts[mesa]} resultados\n"
+            mensaje_final += f"Estado: Monitoreo completado exitosamente"
+            
+            # Enviar mensaje de resumen al chat personal
+            try:
+                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_PERSONAL}/sendMessage"
+                data = {"chat_id": TELEGRAM_CHAT_ID, "text": mensaje_final, "parse_mode": "HTML"}
+                response = requests.post(url, data=data)
+                if response.status_code == 200:
+                    print("[TELEGRAM] Mensaje de resumen final enviado al chat personal")
+                else:
+                    print(f"[TELEGRAM] Error al enviar mensaje de resumen al chat personal: {response.status_code}")
+            except Exception as e:
+                print(f"[TELEGRAM] Error enviando mensaje de resumen al chat personal: {e}")
+            
+            # Enviar mensaje de resumen al chat de estadísticas
+            # try:
+            #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+            #     data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_final, "parse_mode": "HTML"}
+            #     response = requests.post(url, data=data)
+            #     if response.status_code == 200:
+            #         print("[TELEGRAM] Mensaje de resumen final enviado al chat de estadísticas")
+            #     else:
+            #         print(f"[TELEGRAM] Error al enviar mensaje de resumen al chat de estadísticas: {response.status_code}")
+            # except Exception as e:
+            #     print(f"[TELEGRAM] Error enviando mensaje de resumen al chat de estadísticas: {e}")
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo global: {e}", flush=True)
         
