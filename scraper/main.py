@@ -827,73 +827,79 @@ def run(playwright):
             def invertir_secuencia(seq):
                 return [('rojo' if c=='azul' else 'azul') for c in seq]
 
-            # Señal 1: 5 rojos seguidos
+            # Señal 1: 5 rojos seguidos (ignorando verdes)
             def detectar_senal_1(hist, captura_path, mesa):
-                if len(hist) < 5:
+                # Filtrar solo rojos y azules
+                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
+                if len(hist_filtrado) < 5:
                     return
-                if all(h == 'rojo' for h in hist[-5:]):
+                if all(h == 'rojo' for h in hist_filtrado[-5:]):
                     sugerencia = ['azul']*6
                     log_alerta(
                         mesa,
-                        f"5 ROJOS CONSECUTIVOS detectados: {', '.join(hist[-7:])}",
+                        f"5 ROJOS CONSECUTIVOS detectados: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
                         sugerencia_lista=sugerencia
                     )
 
-            # Señal 1 AZUL: 5 azules seguidos
+            # Señal 1 AZUL: 5 azules seguidos (ignorando verdes)
             def detectar_senal_1_azul(hist, captura_path, mesa):
-                if len(hist) < 5:
+                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
+                if len(hist_filtrado) < 5:
                     return
-                if all(h == 'azul' for h in hist[-5:]):
+                if all(h == 'azul' for h in hist_filtrado[-5:]):
                     sugerencia = ['rojo']*6
                     log_alerta(
                         mesa,
-                        f"5 AZULES CONSECUTIVOS detectados: {', '.join(hist[-7:])}",
+                        f"5 AZULES CONSECUTIVOS detectados: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
                         sugerencia_lista=sugerencia
                     )
 
-            # Señal 2: intercalado mínimo 5 veces, empezando en rojo
+            # Señal 2: intercalado mínimo 5 veces, empezando en rojo (ignorando verdes)
             def detectar_senal_2(hist, captura_path, mesa):
-                if len(hist) < 6:
+                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
+                if len(hist_filtrado) < 6:
                     return
                 intercalado_rojo = True
                 for i in range(-5, 0):
-                    if hist[i] == hist[i-1]:
+                    if hist_filtrado[i] == hist_filtrado[i-1]:
                         intercalado_rojo = False
                         break
-                if intercalado_rojo and hist[-6] == 'rojo':
+                if intercalado_rojo and hist_filtrado[-6] == 'rojo':
                     sugerencia = ['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul']
                     log_alerta(
                         mesa,
-                        f"PATRÓN INTERCALADO ROJO-AZUL detectado: {', '.join(hist[-7:])}",
+                        f"PATRÓN INTERCALADO ROJO-AZUL detectado: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
                         sugerencia_lista=sugerencia
                     )
 
-            # Señal 2 AZUL: intercalado mínimo 5 veces, empezando en azul
+            # Señal 2 AZUL: intercalado mínimo 5 veces, empezando en azul (ignorando verdes)
             def detectar_senal_2_azul(hist, captura_path, mesa):
-                if len(hist) < 6:
+                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
+                if len(hist_filtrado) < 6:
                     return
                 intercalado_azul = True
                 for i in range(-5, 0):
-                    if hist[i] == hist[i-1]:
+                    if hist_filtrado[i] == hist_filtrado[i-1]:
                         intercalado_azul = False
                         break
-                if intercalado_azul and hist[-6] == 'azul':
+                if intercalado_azul and hist_filtrado[-6] == 'azul':
                     sugerencia = ['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo']
                     log_alerta(
                         mesa,
-                        f"PATRÓN INTERCALADO AZUL-ROJO detectado: {', '.join(hist[-7:])}",
+                        f"PATRÓN INTERCALADO AZUL-ROJO detectado: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
                         sugerencia_lista=sugerencia
                     )
 
-            # Señal 3: patrón tipo rojo, rojo, azul, rojo, rojo, azul, rojo, rojo
+            # Señal 3: patrón tipo rojo, rojo, azul, rojo, rojo, azul, rojo, rojo (ignorando verdes)
             def detectar_senal_3(hist, captura_path, mesa):
-                if len(hist) < 8:
+                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
+                if len(hist_filtrado) < 8:
                     return
-                patron = hist[-8:]
+                patron = hist_filtrado[-8:]
                 if patron[0] == patron[1] == patron[3] == patron[4] == patron[6] == patron[7] == 'rojo' and \
                    patron[2] == patron[5] == 'azul':
                     final = patron[-1]
@@ -908,11 +914,12 @@ def run(playwright):
                         sugerencia_lista=sugerencia
                     )
 
-            # Señal 3 AZUL: patrón tipo azul, azul, rojo, azul, azul, rojo, azul, azul
+            # Señal 3 AZUL: patrón tipo azul, azul, rojo, azul, azul, rojo, azul, azul (ignorando verdes)
             def detectar_senal_3_azul(hist, captura_path, mesa):
-                if len(hist) < 8:
+                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
+                if len(hist_filtrado) < 8:
                     return
-                patron = hist[-8:]
+                patron = hist_filtrado[-8:]
                 if patron[0] == patron[1] == patron[3] == patron[4] == patron[6] == patron[7] == 'azul' and \
                    patron[2] == patron[5] == 'rojo':
                     final = patron[-1]
@@ -979,7 +986,15 @@ def run(playwright):
                             
                             # ENVIAR RESULTADO A TELEGRAM
                             enviar_resultado_mesa_telegram(mesa, color, resultado_counts[mesa], out_path)
-                            
+
+                            # GUARDAR RESULTADO EN TEXTO POR CADA MESA
+                            try:
+                                historial_path = f"logs/historial_{mesa}.txt"
+                                with open(historial_path, "a", encoding="utf-8") as f:
+                                    f.write(f"{resultado_counts[mesa]:04d} - {color.upper()} - {datetime.now().strftime('%H:%M:%S')}\n")
+                            except Exception as e:
+                                print(f"[ERROR] No se pudo guardar historial de {mesa}: {e}")
+
                             historiales[mesa].append(color)
                             if len(historiales[mesa]) > max_historial:
                                 historiales[mesa] = historiales[mesa][-max_historial:]
@@ -1014,6 +1029,14 @@ def run(playwright):
             for mesa in mesa_areas:
                 print(f"  - {mesa}: {resultado_counts[mesa]}", flush=True)
                 log_files[mesa].close()
+                # Guardar historial textual de la mesa SOLO si es rojo o azul (en cada resultado, fuera de señales)
+                if color in ("rojo", "azul"):
+                    try:
+                        historial_path = f"logs/historial_{mesa}.txt"
+                        with open(historial_path, "a", encoding="utf-8") as f:
+                            f.write(f"{resultado_counts[mesa]:04d} - {color.upper()} - {datetime.now().strftime('%H:%M:%S')}\n")
+                    except Exception as e:
+                        print(f"[ERROR] No se pudo guardar historial de {mesa}: {e}")
             print(f"[RESUMEN FINAL] Todas las capturas están en capturas/mesa_resultados/<mesa>/ y ordenadas cronológicamente.", flush=True)
             
             # Mensaje de resumen final
