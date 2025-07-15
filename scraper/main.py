@@ -7,6 +7,7 @@ import numpy as np
 import json
 import requests
 from datetime import datetime
+import random
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
@@ -772,18 +773,18 @@ def run(playwright):
                     enviar_alerta_telegram(mensaje_telegram, captura_path)
                     
                     # Enviar al chat de señales
-                    # try:
-                    #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
-                    #     with open(captura_path, "rb") as image:
-                    #         files = {"photo": image}
-                    #         data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
-                    #         response = requests.post(url, files=files, data=data)
-                    #         if response.status_code == 200:
-                    #             print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
-                    #         else:
-                    #             print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
-                    # except Exception as e:
-                    #     print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
+                    try:
+                        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                        with open(captura_path, "rb") as image:
+                            files = {"photo": image}
+                            data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
+                            response = requests.post(url, files=files, data=data)
+                            if response.status_code == 200:
+                                print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
+                            else:
+                                print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
+                    except Exception as e:
+                        print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
                         
                 except Exception as e:
                     print(f"[TELEGRAM] Error al intentar enviar alerta: {e}")
@@ -811,31 +812,31 @@ def run(playwright):
                     print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat personal: {e}")
                 
                 # Enviar al chat de estadísticas
-                # try:
-                #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
-                #     with open(captura_path, "rb") as image:
-                #         files = {"photo": image}
-                #         data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
-                #         response = requests.post(url, files=files, data=data)
-                #         if response.status_code == 200:
-                #             print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
-                #         else:
-                #             print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
-                # except Exception as e:
-                #     print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
+                try:
+                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                    with open(captura_path, "rb") as image:
+                        files = {"photo": image}
+                        data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
+                        response = requests.post(url, files=files, data=data)
+                        if response.status_code == 200:
+                            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
+                        else:
+                            print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
+                except Exception as e:
+                    print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
 
             def invertir_secuencia(seq):
                 return [('rojo' if c=='azul' else 'azul') for c in seq]
 
             # Señal 1: 5 rojos seguidos (ignorando verdes)
-            def detectar_senal_1(hist, captura_path, mesa):
+            def detectar_senal_1(hist, captura_path, mesa, log_func=log_alerta):
                 # Filtrar solo rojos y azules
                 hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
                 if len(hist_filtrado) < 5:
                     return
                 if all(h == 'rojo' for h in hist_filtrado[-5:]):
                     sugerencia = ['azul']*6
-                    log_alerta(
+                    log_func(
                         mesa,
                         f"5 ROJOS CONSECUTIVOS detectados: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
@@ -843,13 +844,13 @@ def run(playwright):
                     )
 
             # Señal 1 AZUL: 5 azules seguidos (ignorando verdes)
-            def detectar_senal_1_azul(hist, captura_path, mesa):
+            def detectar_senal_1_azul(hist, captura_path, mesa, log_func=log_alerta):
                 hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
                 if len(hist_filtrado) < 5:
                     return
                 if all(h == 'azul' for h in hist_filtrado[-5:]):
                     sugerencia = ['rojo']*6
-                    log_alerta(
+                    log_func(
                         mesa,
                         f"5 AZULES CONSECUTIVOS detectados: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
@@ -857,7 +858,7 @@ def run(playwright):
                     )
 
             # Señal 2: intercalado mínimo 5 veces, empezando en rojo (ignorando verdes)
-            def detectar_senal_2(hist, captura_path, mesa):
+            def detectar_senal_2(hist, captura_path, mesa, log_func=log_alerta):
                 hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
                 if len(hist_filtrado) < 6:
                     return
@@ -868,7 +869,7 @@ def run(playwright):
                         break
                 if intercalado_rojo and hist_filtrado[-6] == 'rojo':
                     sugerencia = ['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul']
-                    log_alerta(
+                    log_func(
                         mesa,
                         f"PATRÓN INTERCALADO ROJO-AZUL detectado: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
@@ -876,7 +877,7 @@ def run(playwright):
                     )
 
             # Señal 2 AZUL: intercalado mínimo 5 veces, empezando en azul (ignorando verdes)
-            def detectar_senal_2_azul(hist, captura_path, mesa):
+            def detectar_senal_2_azul(hist, captura_path, mesa, log_func=log_alerta):
                 hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
                 if len(hist_filtrado) < 6:
                     return
@@ -887,7 +888,7 @@ def run(playwright):
                         break
                 if intercalado_azul and hist_filtrado[-6] == 'azul':
                     sugerencia = ['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo']
-                    log_alerta(
+                    log_func(
                         mesa,
                         f"PATRÓN INTERCALADO AZUL-ROJO detectado: {', '.join(hist_filtrado[-7:])}",
                         captura_path,
@@ -895,7 +896,7 @@ def run(playwright):
                     )
 
             # Señal 3: patrón tipo rojo, rojo, azul, rojo, rojo, azul, rojo, rojo (ignorando verdes)
-            def detectar_senal_3(hist, captura_path, mesa):
+            def detectar_senal_3(hist, captura_path, mesa, log_func=log_alerta):
                 hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
                 if len(hist_filtrado) < 8:
                     return
@@ -907,7 +908,7 @@ def run(playwright):
                         sugerencia = ['rojo', 'azul', 'rojo', 'rojo', 'rojo']
                     else:
                         sugerencia = ['azul', 'rojo', 'rojo', 'rojo', 'rojo', 'rojo']
-                    log_alerta(
+                    log_func(
                         mesa,
                         f"PATRÓN ROJO-ROJO-AZUL detectado: {', '.join(patron)}",
                         captura_path,
@@ -915,7 +916,7 @@ def run(playwright):
                     )
 
             # Señal 3 AZUL: patrón tipo azul, azul, rojo, azul, azul, rojo, azul, azul (ignorando verdes)
-            def detectar_senal_3_azul(hist, captura_path, mesa):
+            def detectar_senal_3_azul(hist, captura_path, mesa, log_func=log_alerta):
                 hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
                 if len(hist_filtrado) < 8:
                     return
@@ -927,12 +928,41 @@ def run(playwright):
                         sugerencia = ['azul', 'rojo', 'azul', 'azul', 'azul']
                     else:
                         sugerencia = ['rojo', 'azul', 'azul', 'azul', 'azul', 'azul']
-                    log_alerta(
+                    log_func(
                         mesa,
                         f"PATRÓN AZUL-AZUL-ROJO detectado: {', '.join(patron)}",
                         captura_path,
                         sugerencia_lista=sugerencia
                     )
+
+            # --- FUNCIÓN PARA SIMULAR ACTIVIDAD ---
+            def simular_actividad(page):
+                try:
+                    game_iframe_info = page.evaluate("""
+                        () => {
+                            let gameFrame = document.querySelector('iframe.game');
+                            if (gameFrame) {
+                                let rect = gameFrame.getBoundingClientRect();
+                                return {
+                                    found: true,
+                                    x: rect.x,
+                                    y: rect.y,
+                                    width: rect.width,
+                                    height: rect.height
+                                };
+                            }
+                            return { found: false };
+                        }
+                    """)
+                    if game_iframe_info and game_iframe_info['found']:
+                        # Elegir una posición aleatoria dentro del iframe
+                        x = int(game_iframe_info['x'] + random.randint(20, int(game_iframe_info['width']) - 20))
+                        y = int(game_iframe_info['y'] + random.randint(20, int(game_iframe_info['height']) - 20))
+                        page.mouse.move(x, y)
+                        print(f"[ANTI-IDLE] Mouse movido a ({x}, {y}) para simular actividad.", flush=True)
+                except Exception as e:
+                    print(f"[ANTI-IDLE] Error al simular actividad: {e}", flush=True)
+            # --- FIN FUNCIÓN ---
 
             print("[MONITOREO] INICIANDO monitoreo global de SEIS mesas (analizando solo el letrero y detectando señales)...", flush=True)
             
@@ -955,16 +985,16 @@ def run(playwright):
                 print(f"[TELEGRAM] Error enviando mensaje de inicio al chat personal: {e}")
             
             # Enviar mensaje de inicio al chat de estadísticas
-            # try:
-            #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
-            #     data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
-            #     response = requests.post(url, data=data)
-            #     if response.status_code == 200:
-            #         print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
-            #     else:
-            #         print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
-            # except Exception as e:
-            #     print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
+            try:
+                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
+                response = requests.post(url, data=data)
+                if response.status_code == 200:
+                    print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
+                else:
+                    print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
+            except Exception as e:
+                print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
             
             while True:
                 try:
@@ -987,7 +1017,7 @@ def run(playwright):
                             # ENVIAR RESULTADO A TELEGRAM
                             enviar_resultado_mesa_telegram(mesa, color, resultado_counts[mesa], out_path)
 
-                            # GUARDAR RESULTADO EN TEXTO POR CADA MESA
+                            # GUARDAR RESULTADO EN HISTORIAL GLOBAL
                             try:
                                 historial_path = f"logs/historial_{mesa}.txt"
                                 with open(historial_path, "a", encoding="utf-8") as f:
@@ -995,16 +1025,48 @@ def run(playwright):
                             except Exception as e:
                                 print(f"[ERROR] No se pudo guardar historial de {mesa}: {e}")
 
+                            # GUARDAR RESULTADO EN HISTORIAL TEMPORAL
+                            try:
+                                historial_tmp_path = f"logs/historial_tmp_{mesa}.txt"
+                                with open(historial_tmp_path, "a", encoding="utf-8") as f:
+                                    f.write(f"{color}\n")
+                            except Exception as e:
+                                print(f"[ERROR] No se pudo guardar historial temporal de {mesa}: {e}")
+
+                            # Leer historial temporal para detección de patrones
+                            try:
+                                with open(f"logs/historial_tmp_{mesa}.txt", "r", encoding="utf-8") as f:
+                                    hist_tmp = [line.strip() for line in f.readlines() if line.strip() in ("rojo", "azul")]
+                            except Exception as e:
+                                print(f"[ERROR] No se pudo leer historial temporal de {mesa}: {e}")
+                                hist_tmp = []
+
+                            # Detectar señales usando SOLO el historial temporal
+                            patron_detectado = False
+                            def log_alerta_tmp(*args, **kwargs):
+                                nonlocal patron_detectado
+                                patron_detectado = True
+                                log_alerta(*args, **kwargs)
+
+                            detectar_senal_1(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_1_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_2(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_2_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_3(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_3_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+
+                            # Si se detectó un patrón, borrar historial temporal
+                            if patron_detectado:
+                                try:
+                                    open(f"logs/historial_tmp_{mesa}.txt", "w").close()
+                                    hist_tmp = []  # Limpiar también la variable en memoria
+                                    print(f"[DEBUG] Historial temporal de {mesa} vaciado correctamente.", flush=True)
+                                except Exception as e:
+                                    print(f"[ERROR] No se pudo limpiar historial temporal de {mesa}: {e}")
+
                             historiales[mesa].append(color)
                             if len(historiales[mesa]) > max_historial:
                                 historiales[mesa] = historiales[mesa][-max_historial:]
-                            # Detectar señales
-                            detectar_senal_1(historiales[mesa], out_path, mesa)
-                            detectar_senal_1_azul(historiales[mesa], out_path, mesa)
-                            detectar_senal_2(historiales[mesa], out_path, mesa)
-                            detectar_senal_2_azul(historiales[mesa], out_path, mesa)
-                            detectar_senal_3(historiales[mesa], out_path, mesa)
-                            detectar_senal_3_azul(historiales[mesa], out_path, mesa)
                             cooldowns[mesa] = 2
                         try:
                             os.remove(letrero_img_path)
@@ -1014,6 +1076,9 @@ def run(playwright):
                         os.remove(full_path)
                     except Exception:
                         pass
+                    # --- SIMULAR ACTIVIDAD CADA 2 MINUTOS (si ya estamos monitoreando y mandando alertas) ---
+                    if monitoring_count % 60 == 0:  # Aproximadamente cada 2 minutos si el ciclo es cada 2 segundos
+                        simular_actividad(page)
                     time.sleep(2)
                     if monitoring_count >= 450:
                         print(f"\n[MONITOREO] Límite de tiempo alcanzado (15 minutos)", flush=True)
@@ -1060,16 +1125,16 @@ def run(playwright):
                 print(f"[TELEGRAM] Error enviando mensaje de resumen al chat personal: {e}")
             
             # Enviar mensaje de resumen al chat de estadísticas
-            # try:
-            #     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
-            #     data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_final, "parse_mode": "HTML"}
-            #     response = requests.post(url, data=data)
-            #     if response.status_code == 200:
-            #         print("[TELEGRAM] Mensaje de resumen final enviado al chat de estadísticas")
-            #     else:
-            #         print(f"[TELEGRAM] Error al enviar mensaje de resumen al chat de estadísticas: {response.status_code}")
-            # except Exception as e:
-            #     print(f"[TELEGRAM] Error enviando mensaje de resumen al chat de estadísticas: {e}")
+            try:
+                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_final, "parse_mode": "HTML"}
+                response = requests.post(url, data=data)
+                if response.status_code == 200:
+                    print("[TELEGRAM] Mensaje de resumen final enviado al chat de estadísticas")
+                else:
+                    print(f"[TELEGRAM] Error al enviar mensaje de resumen al chat de estadísticas: {response.status_code}")
+            except Exception as e:
+                print(f"[TELEGRAM] Error enviando mensaje de resumen al chat de estadísticas: {e}")
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo global: {e}", flush=True)
         
