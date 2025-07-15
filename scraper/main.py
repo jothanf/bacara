@@ -8,6 +8,15 @@ import json
 import requests
 from datetime import datetime
 import random
+from patrones import (
+    invertir_secuencia,
+    detectar_senal_1,
+    detectar_senal_1_azul,
+    detectar_senal_2,
+    detectar_senal_2_azul,
+    detectar_senal_3,
+    detectar_senal_3_azul
+)
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
@@ -773,18 +782,18 @@ def run(playwright):
                     enviar_alerta_telegram(mensaje_telegram, captura_path)
                     
                     # Enviar al chat de señales
-                    try:
-                        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
-                        with open(captura_path, "rb") as image:
-                            files = {"photo": image}
-                            data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
-                            response = requests.post(url, files=files, data=data)
-                            if response.status_code == 200:
-                                print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
-                            else:
-                                print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
-                    except Exception as e:
-                        print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
+                    #try:
+                    #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                    #    with open(captura_path, "rb") as image:
+                    #        files = {"photo": image}
+                    #        data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
+                    #        response = requests.post(url, files=files, data=data)
+                    #        if response.status_code == 200:
+                    #            print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
+                    #        else:
+                    #            print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
+                    #except Exception as e:
+                    #    print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
                         
                 except Exception as e:
                     print(f"[TELEGRAM] Error al intentar enviar alerta: {e}")
@@ -812,128 +821,18 @@ def run(playwright):
                     print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat personal: {e}")
                 
                 # Enviar al chat de estadísticas
-                try:
-                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
-                    with open(captura_path, "rb") as image:
-                        files = {"photo": image}
-                        data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
-                        response = requests.post(url, files=files, data=data)
-                        if response.status_code == 200:
-                            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
-                        else:
-                            print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
-                except Exception as e:
-                    print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
-
-            def invertir_secuencia(seq):
-                return [('rojo' if c=='azul' else 'azul') for c in seq]
-
-            # Señal 1: 5 rojos seguidos (ignorando verdes)
-            def detectar_senal_1(hist, captura_path, mesa, log_func=log_alerta):
-                # Filtrar solo rojos y azules
-                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
-                if len(hist_filtrado) < 5:
-                    return
-                if all(h == 'rojo' for h in hist_filtrado[-5:]):
-                    sugerencia = ['azul']*6
-                    log_func(
-                        mesa,
-                        f"5 ROJOS CONSECUTIVOS detectados: {', '.join(hist_filtrado[-7:])}",
-                        captura_path,
-                        sugerencia_lista=sugerencia
-                    )
-
-            # Señal 1 AZUL: 5 azules seguidos (ignorando verdes)
-            def detectar_senal_1_azul(hist, captura_path, mesa, log_func=log_alerta):
-                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
-                if len(hist_filtrado) < 5:
-                    return
-                if all(h == 'azul' for h in hist_filtrado[-5:]):
-                    sugerencia = ['rojo']*6
-                    log_func(
-                        mesa,
-                        f"5 AZULES CONSECUTIVOS detectados: {', '.join(hist_filtrado[-7:])}",
-                        captura_path,
-                        sugerencia_lista=sugerencia
-                    )
-
-            # Señal 2: intercalado mínimo 5 veces, empezando en rojo (ignorando verdes)
-            def detectar_senal_2(hist, captura_path, mesa, log_func=log_alerta):
-                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
-                if len(hist_filtrado) < 6:
-                    return
-                intercalado_rojo = True
-                for i in range(-5, 0):
-                    if hist_filtrado[i] == hist_filtrado[i-1]:
-                        intercalado_rojo = False
-                        break
-                if intercalado_rojo and hist_filtrado[-6] == 'rojo':
-                    sugerencia = ['rojo', 'azul', 'rojo', 'azul', 'rojo', 'azul']
-                    log_func(
-                        mesa,
-                        f"PATRÓN INTERCALADO ROJO-AZUL detectado: {', '.join(hist_filtrado[-7:])}",
-                        captura_path,
-                        sugerencia_lista=sugerencia
-                    )
-
-            # Señal 2 AZUL: intercalado mínimo 5 veces, empezando en azul (ignorando verdes)
-            def detectar_senal_2_azul(hist, captura_path, mesa, log_func=log_alerta):
-                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
-                if len(hist_filtrado) < 6:
-                    return
-                intercalado_azul = True
-                for i in range(-5, 0):
-                    if hist_filtrado[i] == hist_filtrado[i-1]:
-                        intercalado_azul = False
-                        break
-                if intercalado_azul and hist_filtrado[-6] == 'azul':
-                    sugerencia = ['azul', 'rojo', 'azul', 'rojo', 'azul', 'rojo']
-                    log_func(
-                        mesa,
-                        f"PATRÓN INTERCALADO AZUL-ROJO detectado: {', '.join(hist_filtrado[-7:])}",
-                        captura_path,
-                        sugerencia_lista=sugerencia
-                    )
-
-            # Señal 3: patrón tipo rojo, rojo, azul, rojo, rojo, azul, rojo, rojo (ignorando verdes)
-            def detectar_senal_3(hist, captura_path, mesa, log_func=log_alerta):
-                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
-                if len(hist_filtrado) < 8:
-                    return
-                patron = hist_filtrado[-8:]
-                if patron[0] == patron[1] == patron[3] == patron[4] == patron[6] == patron[7] == 'rojo' and \
-                   patron[2] == patron[5] == 'azul':
-                    final = patron[-1]
-                    if final == 'rojo':
-                        sugerencia = ['rojo', 'azul', 'rojo', 'rojo', 'rojo']
-                    else:
-                        sugerencia = ['azul', 'rojo', 'rojo', 'rojo', 'rojo', 'rojo']
-                    log_func(
-                        mesa,
-                        f"PATRÓN ROJO-ROJO-AZUL detectado: {', '.join(patron)}",
-                        captura_path,
-                        sugerencia_lista=sugerencia
-                    )
-
-            # Señal 3 AZUL: patrón tipo azul, azul, rojo, azul, azul, rojo, azul, azul (ignorando verdes)
-            def detectar_senal_3_azul(hist, captura_path, mesa, log_func=log_alerta):
-                hist_filtrado = [h for h in hist if h in ('rojo', 'azul')]
-                if len(hist_filtrado) < 8:
-                    return
-                patron = hist_filtrado[-8:]
-                if patron[0] == patron[1] == patron[3] == patron[4] == patron[6] == patron[7] == 'azul' and \
-                   patron[2] == patron[5] == 'rojo':
-                    final = patron[-1]
-                    if final == 'azul':
-                        sugerencia = ['azul', 'rojo', 'azul', 'azul', 'azul']
-                    else:
-                        sugerencia = ['rojo', 'azul', 'azul', 'azul', 'azul', 'azul']
-                    log_func(
-                        mesa,
-                        f"PATRÓN AZUL-AZUL-ROJO detectado: {', '.join(patron)}",
-                        captura_path,
-                        sugerencia_lista=sugerencia
-                    )
+                #try:
+                #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                #    with open(captura_path, "rb") as image:
+                #        files = {"photo": image}
+                #        data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
+                #        response = requests.post(url, files=files, data=data)
+                #        if response.status_code == 200:
+                #            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
+                #        else:
+                #            print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
+                #except Exception as e:
+                #    print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
 
             # --- FUNCIÓN PARA SIMULAR ACTIVIDAD ---
             def simular_actividad(page):
@@ -985,16 +884,16 @@ def run(playwright):
                 print(f"[TELEGRAM] Error enviando mensaje de inicio al chat personal: {e}")
             
             # Enviar mensaje de inicio al chat de estadísticas
-            try:
-                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
-                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
-                response = requests.post(url, data=data)
-                if response.status_code == 200:
-                    print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
-                else:
-                    print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
-            except Exception as e:
-                print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
+            #try:
+            #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+            #    data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
+            #    response = requests.post(url, data=data)
+            #    if response.status_code == 200:
+            #        print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
+            #    else:
+            #        print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
+            #except Exception as e:
+            #    print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
             
             while True:
                 try:
@@ -1125,16 +1024,16 @@ def run(playwright):
                 print(f"[TELEGRAM] Error enviando mensaje de resumen al chat personal: {e}")
             
             # Enviar mensaje de resumen al chat de estadísticas
-            try:
-                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
-                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_final, "parse_mode": "HTML"}
-                response = requests.post(url, data=data)
-                if response.status_code == 200:
-                    print("[TELEGRAM] Mensaje de resumen final enviado al chat de estadísticas")
-                else:
-                    print(f"[TELEGRAM] Error al enviar mensaje de resumen al chat de estadísticas: {response.status_code}")
-            except Exception as e:
-                print(f"[TELEGRAM] Error enviando mensaje de resumen al chat de estadísticas: {e}")
+            #try:
+            #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+            #    data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_final, "parse_mode": "HTML"}
+            #    response = requests.post(url, data=data)
+            #    if response.status_code == 200:
+            #        print("[TELEGRAM] Mensaje de resumen final enviado al chat de estadísticas")
+            #    else:
+            #        print(f"[TELEGRAM] Error al enviar mensaje de resumen al chat de estadísticas: {response.status_code}")
+            #except Exception as e:
+            #    print(f"[TELEGRAM] Error enviando mensaje de resumen al chat de estadísticas: {e}")
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo global: {e}", flush=True)
         
