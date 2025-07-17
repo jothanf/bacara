@@ -15,8 +15,35 @@ from patrones import (
     detectar_senal_2,
     detectar_senal_2_azul,
     detectar_senal_3,
-    detectar_senal_3_azul
+    detectar_senal_3_azul,
+    detectar_senal_4,
+    detectar_senal_4_azul,
+    detectar_senal_5,
+    detectar_senal_5_azul,
+    detectar_senal_6,
+    detectar_senal_6_azul,
+    detectar_senal_7,
+    detectar_senal_7_azul,
+    detectar_senal_8,
+    detectar_senal_8_azul,
+    detectar_senal_9,
+    detectar_senal_9_azul,
+    detectar_senal_10,
+    detectar_senal_10_azul,
+    detectar_senal_11,
+    detectar_senal_11_azul,
+    detectar_senal_12,
+    detectar_senal_12_azul,
+    detectar_senal_13,
+    detectar_senal_13_azul,
+    detectar_senal_14,
+    detectar_senal_14_azul,
+    detectar_senal_15,
+    detectar_senal_15_azul,
+    detectar_senal_16,
+    detectar_senal_16_azul
 )
+from seguimiento import SeguimientoPredicciones
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
@@ -240,12 +267,13 @@ def run(playwright):
                 
                 # Esperar a que cargue el lobby
                 print("[DEBUG] Esperando a que cargue el lobby...", flush=True)
-                time.sleep(8)
+                time.sleep(25)
                 
                 # Tomar captura después de la carga del lobby
                 page.screenshot(path="capturas/paso_10_juego/after_lobby_load.png")
                 
                 print("[DEBUG] Buscando 'Multijuego de Bacará'...", flush=True)
+                time.sleep(25)
                 
                 # Coordenadas absolutas para la primera tarjeta (superior izquierda)
                 # Basado en la imagen, la primera tarjeta está aproximadamente en estas coordenadas
@@ -755,6 +783,7 @@ def run(playwright):
             historiales = {mesa: [] for mesa in mesa_areas}  # historial de resultados por mesa
             max_historial = 20
             log_files = {mesa: open(f"logs/{mesa}_alertas.log", "a", encoding="utf-8") for mesa in mesa_areas}
+            seguimiento = SeguimientoPredicciones()
 
             def log_alerta(mesa, mensaje, captura_path, sugerencia_lista=None):
                 # Para consola: usar texto simple sin emojis
@@ -765,6 +794,9 @@ def run(playwright):
                 print(log_line, flush=True)
                 log_files[mesa].write(log_line)
                 log_files[mesa].flush()
+                # Registrar predicción para seguimiento
+                if sugerencia_lista:
+                    seguimiento.registrar_prediccion(mesa, sugerencia_lista)
                 
                 # Enviar alerta a Telegram con formato mejorado (con emojis)
                 try:
@@ -782,18 +814,18 @@ def run(playwright):
                     enviar_alerta_telegram(mensaje_telegram, captura_path)
                     
                     # Enviar al chat de señales
-                    #try:
-                    #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
-                    #    with open(captura_path, "rb") as image:
-                    #        files = {"photo": image}
-                    #        data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
-                    #        response = requests.post(url, files=files, data=data)
-                    #        if response.status_code == 200:
-                    #            print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
-                    #        else:
-                    #            print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
-                    #except Exception as e:
-                    #    print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
+                    try:
+                        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                        with open(captura_path, "rb") as image:
+                            files = {"photo": image}
+                            data = {"chat_id": TELEGRAM_CHAT_SEÑALES, "caption": mensaje_telegram, "parse_mode": "HTML"}
+                            response = requests.post(url, files=files, data=data)
+                            if response.status_code == 200:
+                                print(f"[TELEGRAM] Señal de {mesa} enviada al chat de señales")
+                            else:
+                                print(f"[TELEGRAM] Error al enviar señal de {mesa} al chat de señales: {response.status_code}")
+                    except Exception as e:
+                        print(f"[TELEGRAM] Error enviando señal de {mesa} al chat de señales: {e}")
                         
                 except Exception as e:
                     print(f"[TELEGRAM] Error al intentar enviar alerta: {e}")
@@ -805,7 +837,6 @@ def run(playwright):
                 mensaje += f"Color: <b>{color.upper()}</b>\n"
                 mensaje += f"Hora: {timestamp}\n"
                 mensaje += f"Resultado #{numero_resultado}"
-                
                 # Enviar al chat personal (como antes)
                 try:
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_PERSONAL}/sendPhoto"
@@ -814,25 +845,25 @@ def run(playwright):
                         data = {"chat_id": TELEGRAM_CHAT_ID, "caption": mensaje, "parse_mode": "HTML"}
                         response = requests.post(url, files=files, data=data)
                         if response.status_code == 200:
-                            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat personal")
+                            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat personal: {color.upper()}")
                         else:
                             print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat personal: {response.status_code}")
                 except Exception as e:
                     print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat personal: {e}")
                 
                 # Enviar al chat de estadísticas
-                #try:
-                #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
-                #    with open(captura_path, "rb") as image:
-                #        files = {"photo": image}
-                #        data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
-                #        response = requests.post(url, files=files, data=data)
-                #        if response.status_code == 200:
-                #            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
-                #        else:
-                #            print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
-                #except Exception as e:
-                #    print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
+                try:
+                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+                    with open(captura_path, "rb") as image:
+                        files = {"photo": image}
+                        data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje, "parse_mode": "HTML"}
+                        response = requests.post(url, files=files, data=data)
+                        if response.status_code == 200:
+                            print(f"[TELEGRAM] Resultado de {mesa} enviado al chat de estadísticas")
+                        else:
+                            print(f"[TELEGRAM] Error al enviar resultado de {mesa} al chat de estadísticas: {response.status_code}")
+                except Exception as e:
+                    print(f"[TELEGRAM] Error enviando resultado de {mesa} al chat de estadísticas: {e}")
 
             # --- FUNCIÓN PARA SIMULAR ACTIVIDAD ---
             def simular_actividad(page):
@@ -884,16 +915,16 @@ def run(playwright):
                 print(f"[TELEGRAM] Error enviando mensaje de inicio al chat personal: {e}")
             
             # Enviar mensaje de inicio al chat de estadísticas
-            #try:
-            #    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
-            #    data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
-            #    response = requests.post(url, data=data)
-            #    if response.status_code == 200:
-            #        print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
-            #    else:
-            #        print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
-            #except Exception as e:
-            #    print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
+            try:
+                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendMessage"
+                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "text": mensaje_inicio, "parse_mode": "HTML"}
+                response = requests.post(url, data=data)
+                if response.status_code == 200:
+                    print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas")
+                else:
+                    print(f"[TELEGRAM] Error al enviar mensaje de inicio al chat de estadísticas: {response.status_code}")
+            except Exception as e:
+                print(f"[TELEGRAM] Error enviando mensaje de inicio al chat de estadísticas: {e}")
             
             while True:
                 try:
@@ -912,10 +943,6 @@ def run(playwright):
                             resultado_counts[mesa] += 1
                             out_path = f"capturas/mesa_resultados/{mesa}/{resultado_counts[mesa]:04d}_{mesa}_resultado_{color}.png"
                             page.screenshot(path=out_path, clip=mesa_areas[mesa])
-                            
-                            # ENVIAR RESULTADO A TELEGRAM
-                            enviar_resultado_mesa_telegram(mesa, color, resultado_counts[mesa], out_path)
-
                             # GUARDAR RESULTADO EN HISTORIAL GLOBAL
                             try:
                                 historial_path = f"logs/historial_{mesa}.txt"
@@ -923,7 +950,6 @@ def run(playwright):
                                     f.write(f"{resultado_counts[mesa]:04d} - {color.upper()} - {datetime.now().strftime('%H:%M:%S')}\n")
                             except Exception as e:
                                 print(f"[ERROR] No se pudo guardar historial de {mesa}: {e}")
-
                             # GUARDAR RESULTADO EN HISTORIAL TEMPORAL
                             try:
                                 historial_tmp_path = f"logs/historial_tmp_{mesa}.txt"
@@ -931,7 +957,6 @@ def run(playwright):
                                     f.write(f"{color}\n")
                             except Exception as e:
                                 print(f"[ERROR] No se pudo guardar historial temporal de {mesa}: {e}")
-
                             # Leer historial temporal para detección de patrones
                             try:
                                 with open(f"logs/historial_tmp_{mesa}.txt", "r", encoding="utf-8") as f:
@@ -939,21 +964,44 @@ def run(playwright):
                             except Exception as e:
                                 print(f"[ERROR] No se pudo leer historial temporal de {mesa}: {e}")
                                 hist_tmp = []
-
                             # Detectar señales usando SOLO el historial temporal
                             patron_detectado = False
                             def log_alerta_tmp(*args, **kwargs):
                                 nonlocal patron_detectado
                                 patron_detectado = True
                                 log_alerta(*args, **kwargs)
-
                             detectar_senal_1(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
                             detectar_senal_1_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
                             detectar_senal_2(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
                             detectar_senal_2_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
                             detectar_senal_3(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
                             detectar_senal_3_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
-
+                            detectar_senal_4(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_4_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_5(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_5_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_6(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_6_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_7(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_7_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_8(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_8_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_9(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_9_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_10(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_10_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_11(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_11_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_12(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_12_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_13(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_13_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_14(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_14_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_15(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_15_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_16(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
+                            detectar_senal_16_azul(hist_tmp, out_path, mesa, log_func=log_alerta_tmp) if not patron_detectado else None
                             # Si se detectó un patrón, borrar historial temporal
                             if patron_detectado:
                                 try:
@@ -962,11 +1010,13 @@ def run(playwright):
                                     print(f"[DEBUG] Historial temporal de {mesa} vaciado correctamente.", flush=True)
                                 except Exception as e:
                                     print(f"[ERROR] No se pudo limpiar historial temporal de {mesa}: {e}")
-
                             historiales[mesa].append(color)
                             if len(historiales[mesa]) > max_historial:
                                 historiales[mesa] = historiales[mesa][-max_historial:]
                             cooldowns[mesa] = 2
+                        # Llamar seguimiento para cada resultado SOLO si es rojo o azul
+                        if color in color_labels:
+                            seguimiento.nuevo_resultado(mesa, color, out_path)
                         try:
                             os.remove(letrero_img_path)
                         except Exception:
