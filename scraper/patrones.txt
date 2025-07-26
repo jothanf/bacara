@@ -1,0 +1,58 @@
+#	Patrón	           Descripción                 prediccion
+1	🔴🔴🔴🔴🔴🔴	Banker fuerte (6 seguidos)   🟦🟦🟦🟦🟦🟦
+2	🟦🟦🟦🟦🟦🟦	Player fuerte (6 seguidos)   🔴🔴🔴🔴🔴🔴
+3	🔴🟦🔴🟦🔴🟦	Zigzag puro                  🔴🔴🟦🟦🔴🔴
+4	🟦🔴🟦🔴🟦🔴	Zigzag inverso               🔴🟦🔴🟦🔴🟦
+5	🔴🔴🟦🟦🔴🔴	Patrón doble                 🟦🔴🟦🔴🟦🔴
+6	🔴🟦🟦🟦🔴🔴	Patrón doble                 🔴🔴🟦🔴🟦🔴
+7	🔴🔴🟦🟦🟦🔴	Patrón doble                 🔴🟦🔴🟦🔴🟦
+8	🟦🟦🔴🔴🟦🟦	Patrón doble inverso         🔴🟦🔴🟦🔴🟦
+9	🔴🔴🔴🟦🟦🟦	3-3 alternado                🟦🔴🟦🔴🟦🔴
+10	🟦🟦🟦🔴🔴🔴	3-3 alternado                🔴🟦🔴🟦🔴🟦
+11	🔴🟦🟦🔴🔴🟦	Desordenado de repetición    🔴🔴🟦🔴🟦🔴
+12	🔴🟦🔴🔴🟦🔴	Mixto balanceado             🔴🟦🟦🔴🔴🟦
+13	🔴🔴🟦🔴🔴🟦	2-1-2 patrón                 🟦🔴🟦🔴🟦🔴
+14	🔴🔴🟦🔴🟦🔴	2-1-2 patrón                 🟦🟦🔴🔴🟦🔴
+15	🟦🔴🔴🟦🔴🔴	Similar 13 invertido         🟦🟦🔴🔴🟦🟦
+16	🔴🟦🟦🟦🔴🔴	Triple intermedio            🔴🔴🟦🔴🟦🔴
+17	🔴🟦🟦🔴🟦🟦	Alternancia desordenada      🔴🔴🟦🔴🟦🔴
+18	🟦🟦🔴🟦🔴🔴	2-3-1                        🔴🔴🟦🔴🟦🔴
+19	🟦🟦🔴🟦🟦🔴	2-1 patrón                   🔴🔴🟦🔴🟦🔴
+20	🟦🔴🟦🟦🔴🟦	Escalonado                   🔴🔴🟦🔴🟦🔴
+21	🔴🔴🟦🔴🔴🔴	Final dominante              🟦🟦🔴🔴🟦🔴
+22	🔴🔴🔴🟦🔴🔴	3-1-1                        🟦🟦🔴🔴🟦🔴
+23	🔴🟦🟦🔴🔴🟦	2-2-2 tipo espejo            🟦🔴🟦🔴🟦🔴
+24	🔴🔴🟦🟦🔴🔴	Patrón espejo inverso        🟦🔴🟦🔴🟦🔴
+25	🟦🔴🔴🔴🟦🔴	3-2 tipo defensa             🟦🟦🔴🔴🟦🔴
+26	🔴🟦🟦🟦🔴🔴	Triple de en medio           🔴🔴🟦🔴🟦🔴
+
+
+1	🔴🟦🔴🔴🟦🟦	Mixto balanceado
+2	🟦🔴🔴🔴🟦🟦	3-2 inverso
+3	🔴🔴🔴🔴🟦🟦	Cuatro + doble cambio
+4	🟦🟦🟦🟦🔴🔴	Cuatro inverso
+5	🔴🟦🔴🔴🔴🟦	1-3-1
+6	🔴🔴🟦🔴🔴🔴	2-1-3
+7	🟦🔴🔴🔴🟦🔴	3 centro dominante
+8	🔴🔴🔴🟦🔴🔴	Reversa con intermedio
+9	🔴🟦🔴🔴🔴🔴	Final largo
+10	🔴🔴🔴🟦🟦🔴	3-2-1 rotación      
+11	🔴🔴🟦🟦🔴🟦	2-2-2 con final inverso
+12	🔴🟦🔴🔴🟦🔴	Intercalado ofensivo
+13	🟦🔴🔴🟦🟦🔴	Defensivo mixto
+14	🟦🟦🔴🔴🟦🔴	2-2 con quiebre
+15	🟦🟦🟦🔴🟦🔴	Triple + inverso
+16	🔴🟦🔴🟦🔴🔴	Zigzag con repetición
+17	🟦🔴🔴🟦🔴🔴	2-1-2 inverso
+18	🔴🔴🟦🔴🟦🟦	Variación 2-1-2
+19	🟦🔴🟦🔴🔴🔴	2-3 finalizado
+20	🔴🔴🔴🟦🟦🔴	3-2-1 con cierre fuerte
+21	🟦🟦🔴🔴🟦🟦	Patrón espejo
+22	🟦🔴🔴🔴🔴🟦	4 dominantes con quiebre
+23	🔴🔴🟦🔴🟦🔴	2 alternancias
+24	🟦🔴🟦🔴🟦🔴	Zigzag firme
+25	🔴🔴🔴🔴🔴🟦	5 con rotura final
+26	🟦🟦🟦🟦🟦🔴	Inverso de 44
+27	🔴🔴🟦🔴🔴🔴	2-1-3 clásico
+28	🟦🔴🔴🟦🟦🟦	Triple de cierre
+29	🔴🟦🔴🔴🔴🟦	Repetido con salida

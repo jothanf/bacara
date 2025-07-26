@@ -1,0 +1,17 @@
+# Dependencias principales del script bacara.py
+playwright==1.53.0
+pillow==11.3.0
+numpy==2.3.1
+requests==2.32.4
+python-telegram-bot==22.3
+psutil==6.1.0
+
+# Dependencias adicionales que pueden ser necesarias
+matplotlib==3.10.3
+pytesseract==0.3.13
+
+# Dependencias del sistema (se instalan con dnf)
+# - chromium
+# - chromium-headless
+# - tesseract
+# - tesseract-langpack-spa 

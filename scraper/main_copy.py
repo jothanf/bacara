@@ -4,11 +4,97 @@ import os
 from playwright.sync_api import sync_playwright
 from PIL import Image
 import numpy as np
+import requests
+from datetime import datetime
 
 # --- Credenciales ---
 EMAIL = "tatianatorres.o@hotmail.com"
 PASSWORD = "160120Juan!"
 LOGIN_URL = "https://stake.com.co/es"
+
+# --- Configuración Telegram ---
+TELEGRAM_TOKEN = "7792602918:AAFW7atIz-5qNaHVItDPv1C-hd2M679WA8s"
+TELEGRAM_CHATS = {
+    "estadisticas": "-1002465111695",
+    "señales": "-1002539477075"
+}
+
+# --- Variables para seguimiento de rachas ---
+rachas = {
+    'rojo': 0,
+    'azul': 0,
+    'verde': 0
+}
+ultimo_color = None
+señales_enviadas = set()  # Para evitar enviar la misma señal múltiples veces
+
+def enviar_mensaje_telegram(token, chat_id, mensaje):
+    """Envía un mensaje a un chat específico de Telegram."""
+    try:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        params = {
+            "chat_id": chat_id,
+            "text": mensaje,
+            "parse_mode": "HTML"
+        }
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            print(f"[TELEGRAM] Mensaje enviado exitosamente a {chat_id}", flush=True)
+            return True
+        else:
+            print(f"[TELEGRAM] Error al enviar mensaje: {response.status_code} - {response.text}", flush=True)
+            return False
+    except Exception as e:
+        print(f"[TELEGRAM] Error en envío: {e}", flush=True)
+        return False
+
+def enviar_resultado_estadisticas(color, numero_resultado):
+    """Envía el resultado de la mesa al chat de estadísticas."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    mensaje = f"<b>RESULTADO MESA 1</b>\n"
+    mensaje += f"Color: <b>{color.upper()}</b>\n"
+    mensaje += f"Hora: {timestamp}\n"
+    mensaje += f"Resultado #{numero_resultado}"
+    
+    return enviar_mensaje_telegram(TELEGRAM_TOKEN, TELEGRAM_CHATS["estadisticas"], mensaje)
+
+def enviar_señal_rachas(color, racha_actual):
+    """Envía una señal cuando se detecta una racha significativa."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    mensaje = f"<b>SEÑAL DE RACHA</b>\n"
+    mensaje += f"Color: <b>{color.upper()}</b>\n"
+    mensaje += f"Racha: {racha_actual} resultados consecutivos\n"
+    mensaje += f"Hora: {timestamp}\n"
+    mensaje += f"<i>Considerar cambio de tendencia</i>"
+    
+    return enviar_mensaje_telegram(TELEGRAM_TOKEN, TELEGRAM_CHATS["señales"], mensaje)
+
+def actualizar_rachas(color_actual):
+    """Actualiza el seguimiento de rachas y detecta señales."""
+    global ultimo_color, rachas, señales_enviadas
+    
+    if color_actual == ultimo_color:
+        # Incrementar la racha actual
+        rachas[color_actual] += 1
+    else:
+        # Resetear todas las rachas y empezar nueva
+        for color in rachas:
+            rachas[color] = 0
+        rachas[color_actual] = 1
+        ultimo_color = color_actual
+    
+    # Detectar señales de rachas significativas (3 o más)
+    racha_actual = rachas[color_actual]
+    señal_key = f"{color_actual}_{racha_actual}"
+    
+    if racha_actual >= 3 and señal_key not in señales_enviadas:
+        print(f"[SEÑAL] Racha de {color_actual.upper()} detectada: {racha_actual} resultados consecutivos", flush=True)
+        if enviar_señal_rachas(color_actual, racha_actual):
+            señales_enviadas.add(señal_key)
+            print(f"[SEÑAL] Señal enviada al chat de señales", flush=True)
+    
+    return racha_actual
 
 def create_folders():
     """Crear estructura de carpetas para organizar las capturas."""
@@ -635,8 +721,8 @@ def run(playwright):
         except Exception as e:
             print(f"[CALIBRACIÓN] Error en calibración: {e}", flush=True)
         
-        # PASO 17: MONITOREO FINAL SOLO EN EL LETRERO DETECTADO (GUARDAR SIEMPRE QUE SEA COLOR)
-        print("\n[PASO 17] Monitoreo SOLO en el área del letrero de resultado (80x100 en y=180)...", flush=True)
+        # PASO 17: MONITOREO FINAL CON ENVÍO DE MENSAJES TELEGRAM
+        print("\n[PASO 17] Monitoreo con envío automático de mensajes a Telegram...", flush=True)
         try:
             mesa1_area_final = {
                 'x': 20,
@@ -652,15 +738,25 @@ def run(playwright):
             }
             print(f"[MONITOREO] Área del letrero: {letrero_area['width']}x{letrero_area['height']} en ({letrero_area['x']}, {letrero_area['y']})", flush=True)
             
-            import numpy as np
-            from PIL import Image
-            import hashlib
-            
+            # Inicializar variables de monitoreo
             monitoring_count = 0
             cambio_count = 0
             color_labels = ['rojo', 'azul', 'verde']
+            ultimo_color_detectado = None
             
-            print("[MONITOREO] INICIANDO DETECCIÓN DE RESULTADOS POR COLOR (guarda cada vez que sea azul, rojo o verde)", flush=True)
+            # Mensaje inicial de inicio de monitoreo
+            mensaje_inicio = f"<b>MONITOREO INICIADO</b>\n"
+            mensaje_inicio += f"Mesa: Baccarat Mesa 1\n"
+            mensaje_inicio += f"Hora: {datetime.now().strftime('%H:%M:%S')}\n"
+            mensaje_inicio += f"Estado: Monitoreando resultados..."
+            
+            enviar_mensaje_telegram(TELEGRAM_TOKEN, TELEGRAM_CHATS["estadisticas"], mensaje_inicio)
+            print("[TELEGRAM] Mensaje de inicio enviado al chat de estadísticas", flush=True)
+            
+            print("[MONITOREO] INICIANDO DETECCIÓN DE RESULTADOS CON ENVÍO AUTOMÁTICO A TELEGRAM", flush=True)
+            print("[MONITOREO] - Cada resultado se envía al chat de ESTADÍSTICAS", flush=True)
+            print("[MONITOREO] - Las rachas de 3+ resultados se envían al chat de SEÑALES", flush=True)
+            
             while True:
                 try:
                     monitoring_count += 1
@@ -672,7 +768,23 @@ def run(playwright):
                         cambio_count += 1
                         mesa_path = f"capturas/paso_17_monitoreo/{cambio_count:04d}_mesa1_resultado_{color}.png"
                         page.screenshot(path=mesa_path, clip=mesa1_area_final)
+                        
                         print(f"[RESULTADO #{cambio_count}] {color.upper()} detectado - Captura: {mesa_path}", flush=True)
+                        
+                        # ENVIAR RESULTADO A ESTADÍSTICAS
+                        if enviar_resultado_estadisticas(color, cambio_count):
+                            print(f"[TELEGRAM] Resultado #{cambio_count} ({color.upper()}) enviado a estadísticas", flush=True)
+                        else:
+                            print(f"[TELEGRAM] Error al enviar resultado #{cambio_count} a estadísticas", flush=True)
+                        
+                        # ACTUALIZAR RACHAS Y DETECTAR SEÑALES
+                        racha_actual = actualizar_rachas(color)
+                        print(f"[RACHAS] Racha actual de {color.upper()}: {racha_actual} resultados consecutivos", flush=True)
+                        
+                        # Mostrar estado actual de todas las rachas
+                        print(f"[RACHAS] Estado actual - Rojo: {rachas['rojo']}, Azul: {rachas['azul']}, Verde: {rachas['verde']}", flush=True)
+                        
+                        ultimo_color_detectado = color
                     
                     try:
                         os.remove(letrero_path)
@@ -691,10 +803,32 @@ def run(playwright):
                     time.sleep(3)
                     continue
             
+            # Mensaje final de resumen
+            mensaje_final = f"<b>MONITOREO FINALIZADO</b>\n"
+            mensaje_final += f"Total de resultados: {cambio_count}\n"
+            mensaje_final += f"Último color: {ultimo_color_detectado.upper() if ultimo_color_detectado else 'N/A'}\n"
+            mensaje_final += f"Rachas finales:\n"
+            mensaje_final += f"• Rojo: {rachas['rojo']}\n"
+            mensaje_final += f"• Azul: {rachas['azul']}\n"
+            mensaje_final += f"• Verde: {rachas['verde']}\n"
+            mensaje_final += f"Hora: {datetime.now().strftime('%H:%M:%S')}"
+            
+            enviar_mensaje_telegram(TELEGRAM_TOKEN, TELEGRAM_CHATS["estadisticas"], mensaje_final)
+            print("[TELEGRAM] Mensaje de resumen final enviado a estadísticas", flush=True)
+            
             print(f"\n[RESUMEN FINAL] Resultados detectados: {cambio_count}", flush=True)
-            print(f"[RESUMEN FINAL] Todas las capturas están en capturas/paso_17_monitoreo/ y ordenadas cronológicamente.", flush=True)
+            print(f"[RESUMEN FINAL] Todas las capturas están en capturas/paso_17_monitoreo/", flush=True)
+            print(f"[RESUMEN FINAL] Mensajes enviados a Telegram:", flush=True)
+            print(f"  - Estadísticas: {cambio_count} resultados", flush=True)
+            print(f"  - Señales: {len(señales_enviadas)} rachas detectadas", flush=True)
+            
         except Exception as e:
             print(f"[MONITOREO] Error en monitoreo final: {e}", flush=True)
+            # Enviar mensaje de error a Telegram
+            mensaje_error = f"<b>ERROR EN MONITOREO</b>\n"
+            mensaje_error += f"Error: {str(e)[:100]}...\n"
+            mensaje_error += f"Hora: {datetime.now().strftime('%H:%M:%S')}"
+            enviar_mensaje_telegram(TELEGRAM_TOKEN, TELEGRAM_CHATS["estadisticas"], mensaje_error)
         
         print("\nTarea completada. El navegador permanecerá abierto por 60 segundos.", flush=True)
         print("Revisa las capturas de pantalla generadas para ver exactamente dónde se hizo clic.", flush=True)

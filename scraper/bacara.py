@@ -128,6 +128,79 @@ def enviar_alerta_telegram(mensaje, captura_path):
         except Exception as e:
             print(f"[TELEGRAM] Error enviando alerta: {e}")
 
+def enviar_captura_debug(page, paso, descripcion, folder="capturas/debug"):
+    """Envía captura de pantalla al Telegram personal y chat de estadísticas para debugging."""
+    try:
+        os.makedirs(folder, exist_ok=True)
+        timestamp = datetime.now().strftime("%H%M%S")
+        filename = f"debug_{paso}_{timestamp}.png"
+        filepath = os.path.join(folder, filename)
+        
+        # Tomar captura
+        page.screenshot(path=filepath)
+        
+        # Enviar al Telegram personal
+        mensaje = f"🔍 DEBUG - PASO {paso}\n{descripcion}\n⏰ {datetime.now().strftime('%H:%M:%S')}"
+        enviar_alerta_telegram(mensaje, filepath)
+        
+        # Enviar al chat de estadísticas
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+            with open(filepath, "rb") as image:
+                files = {"photo": image}
+                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje}
+                response = requests.post(url, files=files, data=data)
+                if response.status_code == 200:
+                    print(f"[TELEGRAM] Captura de debug enviada al chat de estadísticas: {paso}")
+                else:
+                    print(f"[TELEGRAM] Error al enviar captura de debug al chat de estadísticas: {response.status_code}")
+        except Exception as e:
+            print(f"[TELEGRAM] Error enviando captura de debug al chat de estadísticas: {e}")
+        
+        print(f"[DEBUG] Captura enviada al Telegram: {filepath}", flush=True)
+        return filepath
+        
+    except Exception as e:
+        print(f"[ERROR] No se pudo enviar captura de debug: {e}", flush=True)
+        return None
+
+def enviar_captura_paso(page, paso, descripcion, folder_base="capturas"):
+    """Envía captura de pantalla de cada paso al Telegram personal y chat de estadísticas."""
+    try:
+        folder = f"{folder_base}/paso_{paso:02d}"
+        os.makedirs(folder, exist_ok=True)
+        timestamp = datetime.now().strftime("%H%M%S")
+        filename = f"paso_{paso:02d}_{timestamp}.png"
+        filepath = os.path.join(folder, filename)
+        
+        # Tomar captura
+        page.screenshot(path=filepath)
+        
+        # Enviar al Telegram personal
+        mensaje = f"📸 PASO {paso}\n{descripcion}\n⏰ {datetime.now().strftime('%H:%M:%S')}"
+        enviar_alerta_telegram(mensaje, filepath)
+        
+        # Enviar al chat de estadísticas
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN_GRUPOS}/sendPhoto"
+            with open(filepath, "rb") as image:
+                files = {"photo": image}
+                data = {"chat_id": TELEGRAM_CHAT_ESTADISTICAS, "caption": mensaje}
+                response = requests.post(url, files=files, data=data)
+                if response.status_code == 200:
+                    print(f"[TELEGRAM] Captura del paso {paso} enviada al chat de estadísticas")
+                else:
+                    print(f"[TELEGRAM] Error al enviar captura del paso {paso} al chat de estadísticas: {response.status_code}")
+        except Exception as e:
+            print(f"[TELEGRAM] Error enviando captura del paso {paso} al chat de estadísticas: {e}")
+        
+        print(f"[PASO {paso}] Captura enviada al Telegram: {filepath}", flush=True)
+        return filepath
+        
+    except Exception as e:
+        print(f"[ERROR] No se pudo enviar captura del paso {paso}: {e}", flush=True)
+        return None
+
 def run(playwright):
     browser = playwright.chromium.launch(headless=True)
     context = browser.new_context()
@@ -137,17 +210,26 @@ def run(playwright):
         # Crear estructura de carpetas al inicio
         create_folders()
         
+        # Enviar captura de debug inicial
+        enviar_captura_debug(page, "INICIO", "Script iniciado - página en blanco")
+        
         print("[PASO 1] Navegando a la URL de inicio...", flush=True)
         page.goto(LOGIN_URL, timeout=120000, wait_until="domcontentloaded")
         print("[PASO 1] Navegación completada.", flush=True)
 
-        # Guardamos el HTML inicial para tener una referencia
+        # Enviar captura del paso 1
+        enviar_captura_paso(page, 1, "Página inicial cargada")
+
+        # Guardar HTML inicial para tener una referencia
         save_page_content(page, filename="initial_page_content.html", folder="capturas/paso_01_navegacion")
         
         print("[PASO 2] Buscando y haciendo clic en 'Iniciar sesión' para abrir el modal...", flush=True)
         login_button_selector = 'button.variant-link:has-text("Iniciar sesión")'
         page.locator(login_button_selector).click()
         print("[PASO 2] Clic realizado en 'Iniciar sesión'.", flush=True)
+        
+        # Enviar captura del paso 2
+        enviar_captura_paso(page, 2, "Modal de login abierto")
 
         print("[PASO 3] Esperando a que el formulario de login esté visible...", flush=True)
         login_form_selector = 'div.modal-content:has(h1:text("Iniciar sesión")) form'
@@ -155,21 +237,33 @@ def run(playwright):
         login_form.wait_for(timeout=10000)
         print("[PASO 3] Formulario de login visible.", flush=True)
         
+        # Enviar captura del paso 3
+        enviar_captura_paso(page, 3, "Formulario de login visible")
+        
         print("[PASO 4] Llenando credenciales...", flush=True)
         login_form.locator('input[name="username"]').fill(EMAIL)
         print("[PASO 4] Email llenado.", flush=True)
         login_form.locator('input[name="password"]').fill(PASSWORD)
         print("[PASO 4] Contraseña llenada.", flush=True)
         
+        # Enviar captura del paso 4
+        enviar_captura_paso(page, 4, "Credenciales llenadas")
+        
         print("[PASO 5] Enviando formulario...", flush=True)
         login_form.locator('button[type="submit"]').click()
         print("[PASO 5] Formulario enviado.", flush=True)
+        
+        # Enviar captura del paso 5
+        enviar_captura_paso(page, 5, "Formulario enviado")
         
         print("[PASO 6] Navegando a la sección 'Casino'...", flush=True)
         casino_selector = 'a.page-header__sidebar-link:has-text("Casino")'
         page.locator(casino_selector).wait_for(timeout=60000)
         page.locator(casino_selector).click()
         print("[PASO 6] Clic en 'Casino' realizado.", flush=True)
+        
+        # Enviar captura del paso 6
+        enviar_captura_paso(page, 6, "Sección Casino cargada")
 
         print("[PASO 7] Dando clic en 'Pragmatic Play'...", flush=True)
         pragmatic_selector = 'img[alt="pragmatic_play_live"]'
@@ -177,12 +271,18 @@ def run(playwright):
         page.locator(pragmatic_selector).click()
         print("[PASO 7] Clic en 'Pragmatic Play' realizado.", flush=True)
         
+        # Enviar captura del paso 7
+        enviar_captura_paso(page, 7, "Pragmatic Play seleccionado")
+        
         print("[PASO 8] Ingresando a 'Baccarat' de Pragmatic Play Live...", flush=True)
         baccarat_selector = 'a[href="/es/casino/juego/baccarat"]:has(span:text("Pragmatic Play Live"))'
         baccarat_game = page.locator(baccarat_selector)
         baccarat_game.wait_for(timeout=60000)
         baccarat_game.click()
         print("[PASO 8] Clic en 'Baccarat' realizado.", flush=True)
+        
+        # Enviar captura del paso 8
+        enviar_captura_paso(page, 8, "Baccarat seleccionado")
 
         print("[PASO 9] Haciendo clic en 'Juego real'...", flush=True)
         real_play_button_selector = 'button.btn-primary:has-text("Juego real")'
@@ -190,9 +290,15 @@ def run(playwright):
         real_play_button.wait_for(timeout=100000)
         real_play_button.click()
         print("[PASO 9] Clic realizado en 'Juego real'.", flush=True)
+        
+        # Enviar captura del paso 9
+        enviar_captura_paso(page, 9, "Juego real iniciado")
 
         print("[PASO 10] Esperando a que el juego cargue completamente...", flush=True)
         time.sleep(30)  # Más tiempo para que cargue completamente
+        
+        # Enviar captura del paso 10
+        enviar_captura_paso(page, 10, "Juego cargado completamente")
         
         # Guardar HTML completo para análisis
         print("[DEBUG] Guardando HTML completo de la página del juego...", flush=True)
@@ -244,6 +350,9 @@ def run(playwright):
                 print("[DEBUG] Tomando captura inicial del juego...", flush=True)
                 page.screenshot(path="capturas/paso_10_juego/game_initial_state.png")
                 
+                # Enviar captura de debug del estado inicial del juego
+                enviar_captura_debug(page, "10_INIT", "Estado inicial del juego antes de clics")
+                
                 # Coordenadas exactas que funcionaron según before_lobby_click_1_5.png
                 menu_x = iframe_x + iframe_width - 35
                 menu_y = iframe_y + 35
@@ -272,6 +381,9 @@ def run(playwright):
                 # Tomar captura después de la carga del lobby
                 page.screenshot(path="capturas/paso_10_juego/after_lobby_load.png")
                 
+                # Enviar captura de debug del lobby cargado
+                enviar_captura_debug(page, "10_LOBBY", "Lobby cargado después del clic en menú")
+                
                 print("[DEBUG] Buscando 'Multijuego de Bacará'...", flush=True)
                 time.sleep(25)
                 
@@ -285,6 +397,9 @@ def run(playwright):
                 # Tomar captura antes del clic
                 page.screenshot(path="capturas/paso_10_juego/before_card_click.png")
                 
+                # Enviar captura de debug antes del clic en tarjeta
+                enviar_captura_debug(page, "10_BEFORE_CARD", "Antes del clic en primera tarjeta")
+                
                 # Hacer clic en la posición de la primera tarjeta
                 page.mouse.click(first_card_x, first_card_y)
                 
@@ -295,18 +410,29 @@ def run(playwright):
                 # Tomar captura después del clic
                 page.screenshot(path="capturas/paso_10_juego/after_card_click.png")
                 
+                # Enviar captura de debug después del clic en tarjeta
+                enviar_captura_debug(page, "10_AFTER_CARD", "Después del clic en primera tarjeta")
+                
                 print("[ÉXITO] Clic realizado en la primera tarjeta (Multijuego de Bacará)", flush=True)
                 
                 # Verificar si el juego cargó correctamente
                 time.sleep(3)
                 page.screenshot(path="capturas/paso_10_juego/final_game_state.png")
+                
+                # Enviar captura de debug del estado final del juego
+                enviar_captura_debug(page, "10_FINAL", "Estado final del juego después de cargar")
+                
                 print("--- [DEBUG] Captura final del juego guardada ---", flush=True)
                 
             else:
                 print("[ERROR] No se pudo encontrar el iframe del juego", flush=True)
+                # Enviar captura de debug del error
+                enviar_captura_debug(page, "10_ERROR_IFRAME", "Error: No se encontró el iframe del juego")
                 
         except Exception as e:
             print(f"[ERROR] Error en la estrategia mejorada: {e}", flush=True)
+            # Enviar captura de debug del error
+            enviar_captura_debug(page, "10_ERROR_EXCEPTION", f"Error en estrategia mejorada: {str(e)[:100]}")
 
         if menu_found:
             print("\n[PASO 11] ¡ÉXITO TOTAL! Menú del juego encontrado y 'Lobby' clickeado.", flush=True)
@@ -472,6 +598,10 @@ def run(playwright):
             
             # Tomar captura antes del clic en pantalla completa
             page.screenshot(path="capturas/paso_15_pantalla_completa/before_fullscreen_click.png")
+            
+            # Enviar captura de debug antes del intento de pantalla completa
+            enviar_captura_debug(page, "15_BEFORE", "Antes del intento de pantalla completa")
+            
             print("--- [DEBUG] Captura antes del clic en pantalla completa guardada ---", flush=True)
             
             # Obtener las coordenadas del iframe del juego nuevamente
@@ -1069,6 +1199,13 @@ def run(playwright):
         print(f"\n[ERROR] El script falló: {e}", flush=True)
         print("[DEBUG] Guardando el contenido HTML en el momento del error...", flush=True)
         save_page_content(page, filename="error_page_content.html", folder="capturas/debug")
+        
+        # Enviar captura de debug del error final
+        try:
+            enviar_captura_debug(page, "ERROR_FINAL", f"Error final del script: {str(e)[:100]}")
+        except:
+            print("[ERROR] No se pudo enviar captura de debug del error final", flush=True)
+        
         print("[INFO] Revisa los archivos HTML para debug.", flush=True)
 
     finally:
